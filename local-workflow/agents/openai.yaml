@@ -1,4 +1,0 @@
-interface:
-  display_name: "Local Workflow"
-  short_description: "本地 TDD 到分支推送流程"
-  default_prompt: "Use $local-workflow to implement this change with TDD, review, commit, and push a new branch."
