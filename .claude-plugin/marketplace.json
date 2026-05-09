@@ -1,0 +1,20 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "localflow",
+  "description": "Local repository workflow skills for Claude Code.",
+  "metadata": {
+    "description": "Local repository workflow skills for Claude Code."
+  },
+  "owner": {
+    "name": "koko-t7i",
+    "url": "https://github.com/koko-t7i"
+  },
+  "plugins": [
+    {
+      "name": "localflow",
+      "description": "Run a scoped local repo workflow through checks, review, commit, push, and cleanup.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

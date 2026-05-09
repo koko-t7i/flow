@@ -9,7 +9,7 @@ Use for local repo changes that should end as reviewed, committed, and pushed wo
 
 ## 1. Clarify Scope
 
-Make the request concrete: requirement, acceptance criteria, likely impact area, and explicit non-goals. Inspect local context before asking. If underspecified, restate the task and ask only for gaps that change direction, acceptance, or risk. Stop if safe implementation remains unclear.
+Make the request concrete: requirement, acceptance criteria, likely impact area, and explicit non-goals. Inspect local context before asking. If the user's description is unclear, analyze the available context, briefly restate the understood task and remaining question, then wait for user confirmation before implementing. Ask only for gaps that change direction, acceptance, or risk. Stop if safe implementation remains unclear.
 
 ## 2. Inspect State And Choose Mode
 
