@@ -1,6 +1,6 @@
 ---
 name: localflow
-description: Use when a local repository task involves code changes, tests, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, or temporary git worktree cleanup.
+description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, or temporary git worktree cleanup. Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change.
 ---
 
 # Localflow
