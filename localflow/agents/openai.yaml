@@ -1,4 +1,4 @@
 interface:
   display_name: "Localflow"
   short_description: "本地变更检查、提交与推送流程"
-  default_prompt: "Use $localflow to implement or review local changes, run the right checks, commit, and push safely."
+  default_prompt: "Use $localflow for this repo change: clarify unclear requirements first, choose the right branch/worktree mode, run relevant checks, review, commit, and push safely."
