@@ -44,7 +44,11 @@ Review the final diff as a code reviewer. Check acceptance criteria, regressions
 
 ## 8. Commit
 
-After review passes, stage only current-task files. Use an English Conventional Commit message such as `feat: add user export`. Confirm the branch and commit contain only current-task work and no sensitive or generated junk.
+After review passes, stage only current-task files. Use a Conventional Commit message such as `feat: add user export`. Confirm the branch and commit contain only current-task work and no sensitive or generated junk.
+
+The commit subject and body must be written in English only. Do not use Chinese, Japanese, Korean, or any other non-English language anywhere in the commit message, even if the user conversation or code comments are in another language.
+
+The commit message must describe the change only. Do not add any AI assistant attribution such as `Co-Authored-By: Claude`, `Co-Authored-By: Codex`, `Generated with Claude Code`, `🤖 Generated with ...`, or similar trailers, footers, or signatures. Do not mention Claude, Codex, Anthropic, OpenAI, or any agent tooling anywhere in the subject or body. Strip these lines if a template or hook would otherwise insert them.
 
 ## 9. Push, Recover Auth, And Clean Up
 
