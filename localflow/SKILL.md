@@ -5,24 +5,28 @@ description: Use when a local repository task involves code changes that need va
 
 # Localflow
 
-Use for local repo changes that should end as reviewed, committed, and pushed work. Stop at push; create no MR/PR unless explicitly asked.
+Use for local repository changes that should end as clarified, verified, committed, and delivered according to the repository's delivery mode.
 
 Keep this file as the workflow entrypoint. Load the referenced files only when that phase is relevant. Stop conditions and red flags in those references override forward progress.
 
 ## Workflow
 
-1. **Clarify and choose mode.** Make the request concrete, inspect local repo state, and decide whether this is a new task or existing dirty-tree delivery. Read [references/workflow.md](references/workflow.md).
-2. **Branch and isolate.** Use the detected remote default for independent new tasks. Create or switch to a `type/slug` branch, and use a temporary worktree when new work could collide with local changes. Read [references/workflow.md](references/workflow.md).
-3. **Implement and verify.** Use TDD where practical, run relevant repo checks, inspect the diff, and perform a final review gate. Read [references/validation.md](references/validation.md).
-4. **Commit.** Stage only current-task files and write a concise English Conventional Commit message. Read [references/commit.md](references/commit.md) before committing.
-5. **Push and clean up.** Push to `origin`, recover auth issues safely, clean up temporary worktrees, and report the final state. Read [references/push-cleanup.md](references/push-cleanup.md).
+1. **Clarify requirement.** Restate the task, acceptance criteria, scope, non-goals, and blockers. Read [references/clarify.md](references/clarify.md).
+2. **Resolve repository workflow.** Determine the long-lived base branch, delivery mode, task branch, and worktree lifecycle. Read [references/git.md](references/git.md).
+3. **Implement and verify.** Use task-appropriate checks, fresh evidence, and review gates. Use TDD only when it fits code behavior work. Read [references/verify.md](references/verify.md).
+4. **Commit.** Stage only current-task files and write a concise English Conventional Commit message. Read [references/contrib.md](references/contrib.md).
+5. **Deliver.** Use the repository delivery mode: Local Landing, Remote Review, or Push Only. Read [references/contrib.md](references/contrib.md).
+6. **Finish lifecycle.** Clean up only the branch, remote branch, and worktree owned by the current delivery unit, then return to the selected long-lived branch. Read [references/git.md](references/git.md) and [references/contrib.md](references/contrib.md).
+
+## Module Ownership
+
+- `clarify.md` owns task intent and acceptance criteria.
+- `git.md` owns local branch/worktree lifecycle and cleanup mechanics.
+- `verify.md` owns task acceptance evidence and review gates.
+- `contrib.md` owns commit, push, remote branch, and MR/PR delivery decisions.
 
 ## Stop Conditions
 
-Stop and ask when the requirement, safe baseline, branch target, auth recovery step, or task/file boundary cannot be determined from the repo and the user's request.
+Stop and ask when the requirement, acceptance criteria, safe baseline, long-lived branch, delivery mode, auth recovery step, or task/file boundary cannot be determined.
 
-Do not commit with task-related checks failing. For unrelated failures, record evidence and leave them alone unless requested.
-
-## Pressure Scenarios
-
-Check these cases: new feature starts from a clean remote baseline; "commit/push these changes" stages only relevant dirty files; repos without `origin/main` use the real default; `Permission denied (publickey)` triggers SSH diagnosis without secret exposure; unrelated failing tests are reported, not silently fixed.
+Do not commit with task-related checks failing. Do not merge or clean up lifecycle resources while required review, CI, or user approval is still pending.
