@@ -15,10 +15,17 @@ that work is part of delivering a code change.
 ```text
 localflow/SKILL.md              # Canonical Codex skill
 localflow/agents/openai.yaml    # Codex UI metadata
+localflow/scripts/              # Deterministic helper scripts
 skills/localflow                # Claude Code plugin symlink
 ```
 
 ## Validate
+
+Refresh the local environment capability snapshot:
+
+```bash
+python3 ./localflow/scripts/check_environment.py
+```
 
 Validate the Codex skill after editing:
 
