@@ -14,13 +14,13 @@ The snapshot is local cache, not repository state:
 Refresh it when missing, older than 24 hours, or when the task depends on live auth or permissions:
 
 ```bash
-python3 ./localflow/scripts/check_environment.py
+uv run ./localflow/scripts/check_environment.py
 ```
 
 If the current repository does not contain the skill source tree, use the installed skill copy:
 
 ```bash
-python3 /home/koko/.codex/skills/localflow/scripts/check_environment.py --cwd "$PWD"
+uv run /home/koko/.codex/skills/localflow/scripts/check_environment.py --cwd "$PWD"
 ```
 
 Read the Markdown summary first for quick decisions. Read the JSON when you need exact failure kinds, command paths, or probe output.
@@ -31,6 +31,7 @@ Read the Markdown summary first for quick decisions. Read the JSON when you need
 - `configured`: basic config/version probes succeeded.
 - `auth_ok`: authenticated API or registry check succeeded when applicable.
 - `permission_ok`: local runtime permission succeeded when applicable, such as Docker daemon access.
+- `sudo_permission_ok`: non-interactive sudo runtime permission succeeded when applicable.
 
 Keep these separate. A tool can be installed but unusable for a task because auth or permissions fail.
 
@@ -70,5 +71,7 @@ Uploading a public key to GitHub or GitLab changes account security state. Do it
 
 - `python` and `python3` are independent; use the one the snapshot marks installed.
 - Docker requires both the client and daemon permission. `docker --version` alone does not prove container commands will work.
+- Docker sudo probing uses `sudo -n docker info` only. It records passwordless sudo capability without prompting for a password.
+- Run the environment snapshot with `uv run`; the script also records whether `uv`, `python`, and `python3` are available.
 - `npm`/`pnpm` registry access and npm publish/auth state are separate from install/version checks.
 - `gh` and `glab` auth status proves API access only when paired with a read-only API call such as `gh api user` or `glab api user`.
