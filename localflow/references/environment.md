@@ -17,6 +17,12 @@ Refresh it when missing, older than 24 hours, or when the task depends on live a
 python3 ./localflow/scripts/check_environment.py
 ```
 
+If the current repository does not contain the skill source tree, use the installed skill copy:
+
+```bash
+python3 /home/koko/.codex/skills/localflow/scripts/check_environment.py --cwd "$PWD"
+```
+
 Read the Markdown summary first for quick decisions. Read the JSON when you need exact failure kinds, command paths, or probe output.
 
 ## Status Fields

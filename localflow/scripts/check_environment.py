@@ -164,12 +164,12 @@ def remote_metadata(remote_url: str | None) -> dict[str, str | None]:
 
 def safe_global_git_config() -> dict[str, str]:
     allowed = {
-        "user.name",
-        "user.email",
         "core.editor",
-        "pull.rebase",
-        "init.defaultbranch",
         "credential.helper",
+        "init.defaultbranch",
+        "pull.rebase",
+        "user.email",
+        "user.name",
     }
     result = run_command(["git", "config", "--global", "--list"], timeout=3)
     config: dict[str, str] = {}
