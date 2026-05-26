@@ -1,6 +1,6 @@
 ---
 name: localflow
-description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, or temporary git worktree cleanup. Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change.
+description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, temporary git worktree cleanup, or when the user invokes `$localflow check` to refresh local CLI/auth/permission capability. Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change or the explicit check subcommand.
 ---
 
 # Localflow
@@ -8,6 +8,29 @@ description: Use when a local repository task involves code changes that need va
 Use for local repository changes that should end as clarified, verified, committed, and delivered according to the repository's delivery mode.
 
 Keep this file as the workflow entrypoint. Load the referenced files only when that phase is relevant. Stop conditions and red flags in those references override forward progress.
+
+## Subcommands
+
+### `$localflow check`
+
+Use when the user invokes `$localflow check`, asks to check localflow environment capability, or wants to know which local tools/auth paths are currently usable.
+
+This is a read-only environment check, not a delivery workflow. Do not clarify requirements, create branches, edit repository files, commit, push, or clean worktrees for this subcommand.
+
+1. Read [references/environment.md](references/environment.md).
+2. Run the environment snapshot script for the user's current working directory:
+
+   ```bash
+   uv run ./localflow/scripts/check_environment.py --cwd "$PWD"
+   ```
+
+   If the current repository does not contain the skill source tree, run the installed skill copy instead:
+
+   ```bash
+   uv run /home/koko/.codex/skills/localflow/scripts/check_environment.py --cwd "$PWD"
+   ```
+
+3. Report the Markdown snapshot path, the JSON snapshot path, and the actionable failures only. Keep secrets redacted.
 
 ## Workflow
 

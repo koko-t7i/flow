@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run
+#
+# /// script
+# requires-python = ">=3.10"
+# ///
 """Write a redacted localflow environment capability snapshot."""
 
 from __future__ import annotations
@@ -164,12 +168,12 @@ def remote_metadata(remote_url: str | None) -> dict[str, str | None]:
 
 def safe_global_git_config() -> dict[str, str]:
     allowed = {
-        "user.name",
-        "user.email",
         "core.editor",
-        "pull.rebase",
-        "init.defaultbranch",
         "credential.helper",
+        "init.defaultbranch",
+        "pull.rebase",
+        "user.email",
+        "user.name",
     }
     result = run_command(["git", "config", "--global", "--list"], timeout=3)
     config: dict[str, str] = {}
@@ -283,10 +287,13 @@ def probe_docker() -> dict[str, object]:
         return probe
     compose = run_command(["docker", "compose", "version"], timeout=6)
     info = run_command(["docker", "info"], timeout=8)
+    sudo_info = run_command(["sudo", "-n", "docker", "info"], timeout=8)
     probe["compose_version"] = first_line(compose["stdout"]) if compose["ok"] else None
     probe["compose_probe"] = compose
     probe["daemon_probe"] = info
+    probe["sudo_daemon_probe"] = sudo_info
     probe["permission_ok"] = info["ok"]
+    probe["sudo_permission_ok"] = sudo_info["ok"]
     probe["configured"] = compose["ok"]
     return probe
 
@@ -308,6 +315,7 @@ def build_snapshot(cwd: Path) -> dict[str, object]:
             "pnpm": probe_npm_like("pnpm"),
             "python": probe_command("python", ["--version"]),
             "python3": probe_command("python3", ["--version"]),
+            "uv": probe_command("uv", ["--version"]),
             "docker": probe_docker(),
         },
     }
@@ -330,19 +338,20 @@ def render_markdown(snapshot: dict[str, object]) -> str:
         f"- Generated: `{snapshot['generated_at']}`",
         f"- Working directory: `{snapshot['cwd']}`",
         "",
-        "| Tool | Installed | Configured | Auth OK | Permission OK | Version |",
-        "| --- | --- | --- | --- | --- | --- |",
+        "| Tool | Installed | Configured | Auth OK | Permission OK | Sudo OK | Version |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
     ]
     for name, raw_tool in tools.items():
         tool = raw_tool if isinstance(raw_tool, dict) else {}
         version = str(tool.get("version") or tool.get("compose_version") or "")
         lines.append(
-            "| {name} | {installed} | {configured} | {auth_ok} | {permission_ok} | {version} |".format(
+            "| {name} | {installed} | {configured} | {auth_ok} | {permission_ok} | {sudo_ok} | {version} |".format(
                 name=name,
                 installed=status_text(tool.get("installed")),
                 configured=status_text(tool.get("configured")),
                 auth_ok=status_text(tool.get("auth_ok")),
                 permission_ok=status_text(tool.get("permission_ok")),
+                sudo_ok=status_text(tool.get("sudo_permission_ok")),
                 version=version.replace("|", "\\|"),
             )
         )

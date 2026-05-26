@@ -24,7 +24,7 @@ skills/localflow                # Claude Code plugin symlink
 Refresh the local environment capability snapshot:
 
 ```bash
-python3 ./localflow/scripts/check_environment.py
+uv run ./localflow/scripts/check_environment.py
 ```
 
 Validate the Codex skill after editing:
