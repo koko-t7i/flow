@@ -21,13 +21,13 @@ This is a read-only environment check, not a delivery workflow. Do not clarify r
 2. Run the environment snapshot script for the user's current working directory:
 
    ```bash
-   python3 ./localflow/scripts/check_environment.py --cwd "$PWD"
+   uv run ./localflow/scripts/check_environment.py --cwd "$PWD"
    ```
 
    If the current repository does not contain the skill source tree, run the installed skill copy instead:
 
    ```bash
-   python3 /home/koko/.codex/skills/localflow/scripts/check_environment.py --cwd "$PWD"
+   uv run /home/koko/.codex/skills/localflow/scripts/check_environment.py --cwd "$PWD"
    ```
 
 3. Report the Markdown snapshot path, the JSON snapshot path, and the actionable failures only. Keep secrets redacted.

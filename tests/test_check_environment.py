@@ -59,3 +59,26 @@ class CheckEnvironmentTest(unittest.TestCase):
         )
 
         self.assertEqual(summary, {"login": "koko-t7i", "username": "koko"})
+
+    def test_render_markdown_includes_sudo_status(self):
+        module = load_module()
+
+        markdown = module.render_markdown(
+            {
+                "generated_at": "2026-05-26T00:00:00+00:00",
+                "cwd": "/tmp/repo",
+                "tools": {
+                    "docker": {
+                        "installed": True,
+                        "configured": True,
+                        "auth_ok": None,
+                        "permission_ok": False,
+                        "sudo_permission_ok": True,
+                        "version": "Docker version 29.2.0",
+                    }
+                },
+            }
+        )
+
+        self.assertIn("Sudo OK", markdown)
+        self.assertIn("| docker | yes | yes | n/a | no | yes | Docker version 29.2.0 |", markdown)
