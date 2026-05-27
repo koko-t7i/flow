@@ -1,7 +1,8 @@
 # Localflow
 
-`localflow` is a Codex skill for local repository changes that should end as
-reviewed, committed, and pushed work.
+`localflow` is a local repository workflow skill for changes that should end
+as clarified, verified, committed, and delivered. It is published as a
+first-class Claude Code plugin and as a Codex skill from the same source tree.
 
 Use it when a task involves code changes that need validation, dirty worktree
 handling, task branch selection, commit/push delivery, push authentication
@@ -13,10 +14,14 @@ that work is part of delivering a code change.
 ## Repository Layout
 
 ```text
-localflow/SKILL.md              # Canonical Codex skill
+.claude-plugin/                 # Claude Code plugin and marketplace manifests
+commands/localflow.md           # Claude Code slash command entrypoint
+skills/localflow                # Claude Code skill (symlink to ./localflow)
+localflow/SKILL.md              # Shared skill workflow, loaded by both hosts
 localflow/agents/openai.yaml    # Codex UI metadata
+localflow/references/           # Workflow modules loaded on demand
 localflow/scripts/              # Deterministic helper scripts
-skills/localflow                # Claude Code plugin symlink
+tests/                          # Script tests
 ```
 
 ## Validate
@@ -27,27 +32,48 @@ Refresh the local environment capability snapshot:
 uv run ./localflow/scripts/check_environment.py
 ```
 
-Validate the Codex skill after editing:
-
-```bash
-python3 /home/koko/.codex/skills/.system/skill-creator/scripts/quick_validate.py ./localflow
-```
-
 Validate the Claude Code plugin before installing:
 
 ```bash
 claude plugin validate .
 ```
 
-## Claude Code
+Validate the Codex skill after editing, if a Codex skill-creator install is
+available locally:
 
-This repository also exposes `localflow` as a Claude Code plugin. The Claude
-skill path is `skills/localflow`, a symlink to the canonical `localflow`
-directory, so Codex and Claude Code share the same `SKILL.md`.
+```bash
+python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
+```
+
+## Install
+
+### Claude Code
 
 Install from this local marketplace:
 
 ```bash
 claude plugin marketplace add ./
 claude plugin install localflow@localflow
+```
+
+After install, invoke the slash command:
+
+```text
+/localflow check
+/localflow <describe the change to deliver>
+```
+
+### Codex
+
+Symlink the `localflow` directory into the Codex skills location:
+
+```bash
+ln -s "$PWD/localflow" "$HOME/.codex/skills/localflow"
+```
+
+After install, invoke the skill:
+
+```text
+$localflow check
+$localflow <describe the change to deliver>
 ```

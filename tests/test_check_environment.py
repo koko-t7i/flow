@@ -1,4 +1,5 @@
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -82,3 +83,53 @@ class CheckEnvironmentTest(unittest.TestCase):
 
         self.assertIn("Sudo OK", markdown)
         self.assertIn("| docker | yes | yes | n/a | no | yes | Docker version 29.2.0 |", markdown)
+
+    def test_default_cache_dir_is_neutral(self):
+        module = load_module()
+
+        self.assertEqual(module.CACHE_DIR, Path.home() / ".cache" / "localflow")
+        self.assertEqual(module.LEGACY_CACHE_DIR, Path.home() / ".cache" / "codex-localflow")
+        self.assertEqual(module.DEFAULT_JSON_PATH, module.CACHE_DIR / "environment.json")
+        self.assertEqual(module.DEFAULT_MARKDOWN_PATH, module.CACHE_DIR / "environment.md")
+
+    def test_migrate_legacy_cache_moves_files_and_removes_empty_dir(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            legacy = base / "codex-localflow"
+            new = base / "localflow"
+            legacy.mkdir()
+            (legacy / "environment.json").write_text("{}", encoding="utf-8")
+
+            migrated = module.migrate_legacy_cache(legacy_dir=legacy, new_dir=new)
+
+            self.assertTrue(migrated)
+            self.assertFalse(legacy.exists())
+            self.assertTrue((new / "environment.json").exists())
+
+    def test_migrate_legacy_cache_is_noop_when_new_dir_exists(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            legacy = base / "codex-localflow"
+            new = base / "localflow"
+            legacy.mkdir()
+            new.mkdir()
+            (legacy / "environment.json").write_text("legacy", encoding="utf-8")
+
+            migrated = module.migrate_legacy_cache(legacy_dir=legacy, new_dir=new)
+
+            self.assertFalse(migrated)
+            self.assertTrue((legacy / "environment.json").exists())
+
+    def test_migrate_legacy_cache_is_noop_when_legacy_missing(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            legacy = base / "codex-localflow"
+            new = base / "localflow"
+
+            migrated = module.migrate_legacy_cache(legacy_dir=legacy, new_dir=new)
+
+            self.assertFalse(migrated)
+            self.assertFalse(new.exists())

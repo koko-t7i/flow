@@ -8,8 +8,10 @@ Do not infer tool availability, auth, or permissions from command names alone. U
 
 The snapshot is local cache, not repository state:
 
-- JSON: `~/.cache/codex-localflow/environment.json`
-- Markdown: `~/.cache/codex-localflow/environment.md`
+- JSON: `~/.cache/localflow/environment.json`
+- Markdown: `~/.cache/localflow/environment.md`
+
+The script moves any pre-existing `~/.cache/codex-localflow/` contents into the new location on first run.
 
 Refresh it when missing, older than 24 hours, or when the task depends on live auth or permissions:
 
@@ -17,10 +19,14 @@ Refresh it when missing, older than 24 hours, or when the task depends on live a
 uv run ./localflow/scripts/check_environment.py
 ```
 
-If the current repository does not contain the skill source tree, use the installed skill copy:
+If the current repository does not contain the skill source tree, run the installed skill copy. Probe the candidates below in order and use the first that resolves:
 
 ```bash
-uv run /home/koko/.codex/skills/localflow/scripts/check_environment.py --cwd "$PWD"
+# Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
+uv run "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/check_environment.py" --cwd "$PWD"
+
+# Codex skill install.
+uv run "$HOME/.codex/skills/localflow/scripts/check_environment.py" --cwd "$PWD"
 ```
 
 Read the Markdown summary first for quick decisions. Read the JSON when you need exact failure kinds, command paths, or probe output.

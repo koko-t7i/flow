@@ -18,7 +18,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 
-CACHE_DIR = Path.home() / ".cache" / "codex-localflow"
+CACHE_DIR = Path.home() / ".cache" / "localflow"
+LEGACY_CACHE_DIR = Path.home() / ".cache" / "codex-localflow"
 DEFAULT_JSON_PATH = CACHE_DIR / "environment.json"
 DEFAULT_MARKDOWN_PATH = CACHE_DIR / "environment.md"
 DEFAULT_TIMEOUT_SECONDS = 6
@@ -389,7 +390,29 @@ def render_markdown(snapshot: dict[str, object]) -> str:
     return "\n".join(lines)
 
 
+def migrate_legacy_cache(
+    legacy_dir: Path = LEGACY_CACHE_DIR,
+    new_dir: Path = CACHE_DIR,
+) -> bool:
+    if not legacy_dir.is_dir() or new_dir.exists():
+        return False
+    try:
+        new_dir.mkdir(parents=True, exist_ok=True)
+        for item in legacy_dir.iterdir():
+            target = new_dir / item.name
+            if not target.exists():
+                shutil.move(str(item), str(target))
+        try:
+            legacy_dir.rmdir()
+        except OSError:
+            pass
+        return True
+    except OSError:
+        return False
+
+
 def write_snapshot(snapshot: dict[str, object], json_path: Path, markdown_path: Path) -> None:
+    migrate_legacy_cache()
     json_path.parent.mkdir(parents=True, exist_ok=True)
     markdown_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
