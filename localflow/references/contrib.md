@@ -22,7 +22,7 @@ Use imperative mood, keep the subject near 50 characters when practical, hard ca
 
 Add a body only for non-obvious why, breaking changes, security fixes, data migrations, reverts, or linked issues. For breaking changes, include `!` and a `BREAKING CHANGE:` note.
 
-Never include non-English commit text, AI attribution, tool signatures, or mentions of Claude, Codex, Anthropic, OpenAI, or agent tooling.
+Never include non-English text, AI attribution, tool signatures, or mentions of Claude, Codex, Anthropic, OpenAI, or agent tooling in commit messages, MR/PR titles, or MR/PR descriptions.
 
 For multi-line messages, prefer `git commit -F <tempfile>` or the editor flow instead of complex escaped newlines in `git commit -m`.
 
