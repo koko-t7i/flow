@@ -5,7 +5,7 @@ argument-hint: "[check] (or describe the change to deliver)"
 
 # Localflow
 
-Use the `localflow` skill for this request. If the Skill tool is available, invoke `localflow` before continuing, then follow that skill's workflow exactly.
+Use the `localflow:localflow` skill for this request. If the Skill tool is available, invoke `localflow:localflow` before continuing, then follow that skill's workflow exactly.
 
 If the first argument is `check`, treat it as the `localflow check` subcommand: run only the environment capability snapshot, report results, and stop without editing the repository.
 
