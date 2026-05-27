@@ -1,6 +1,6 @@
 ---
 name: localflow
-description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, temporary git worktree cleanup, or when the user invokes `$localflow check` to refresh local CLI/auth/permission capability. Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change or the explicit check subcommand.
+description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, temporary git worktree cleanup, or when the user invokes the `localflow check` subcommand (`/localflow check` in Claude Code, `$localflow check` in Codex) to refresh local CLI/auth/permission capability. Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change or the explicit check subcommand.
 ---
 
 # Localflow
@@ -11,24 +11,27 @@ Keep this file as the workflow entrypoint. Load the referenced files only when t
 
 ## Subcommands
 
-### `$localflow check`
+### `localflow check`
 
-Use when the user invokes `$localflow check`, asks to check localflow environment capability, or wants to know which local tools/auth paths are currently usable.
+Use when the user invokes the `localflow check` subcommand (`/localflow check` in Claude Code, `$localflow check` in Codex), asks to check localflow environment capability, or wants to know which local tools/auth paths are currently usable.
 
 This is a read-only environment check, not a delivery workflow. Do not clarify requirements, create branches, edit repository files, commit, push, or clean worktrees for this subcommand.
 
 1. Read [references/environment.md](references/environment.md).
-2. Run the environment snapshot script for the user's current working directory:
+2. Run the environment snapshot script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
 
    ```bash
+   # 1. Repo-local copy when cwd is inside the localflow repo.
    uv run ./localflow/scripts/check_environment.py --cwd "$PWD"
+
+   # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
+   uv run "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/check_environment.py" --cwd "$PWD"
+
+   # 3. Codex skill install.
+   uv run "$HOME/.codex/skills/localflow/scripts/check_environment.py" --cwd "$PWD"
    ```
 
-   If the current repository does not contain the skill source tree, run the installed skill copy instead:
-
-   ```bash
-   uv run /home/koko/.codex/skills/localflow/scripts/check_environment.py --cwd "$PWD"
-   ```
+   If none of these paths exist on the current machine, stop and ask the user to point at the installed `check_environment.py`.
 
 3. Report the Markdown snapshot path, the JSON snapshot path, and the actionable failures only. Keep secrets redacted.
 
