@@ -6,9 +6,9 @@ Contribution owns the handoff from verified local changes to commit, push, MR/PR
 
 ## Commit
 
-Before staging, inspect the final diff and recent commit style with `git log -5 --oneline`. Follow repository scope and capitalization conventions when they do not conflict with this skill.
+Before staging, inspect the final diff. Inspect recent commit style with `git log -5 --oneline` only when repository conventions are unknown or appear to conflict with this skill.
 
-Stage only current-task files. Confirm `git diff --cached` contains the intended change and no sensitive or generated junk.
+Stage only current-task files. Confirm `git diff --cached` contains the intended change and no sensitive or generated junk. Never use `git add .`.
 
 Use an English Conventional Commit:
 
@@ -56,11 +56,39 @@ In Remote Review mode:
 - keep the local task branch and worktree for review, CI, and conflict fixes
 - wait for explicit user approval before merging
 
+### Lean Remote Review Path
+
+When the environment snapshot or the current session has already proven remote auth for this host, do not re-run expensive discovery commands unless something fails.
+
+For a normal GitLab MR from the current task branch, do not pre-list MRs. Prefer this short path:
+
+```bash
+git push -u origin <branch>
+glab mr create --source-branch <branch> --target-branch <target> --title "<title>" --description "$(cat <mr.md>)" --yes
+glab mr view <branch> --output json
+```
+
+Use the MR response to confirm `state`, `source_branch`, `target_branch`, `sha`, `detailed_merge_status`, `head_pipeline`, and `web_url`.
+
+If MR creation fails because an MR already exists, inspect that MR instead of retrying creation:
+
+```bash
+glab mr view <branch> --output json
+```
+
+Avoid defaulting to `glab repo view`, `glab mr create --help`, repeated `glab auth status`, pre-listing MRs, or broad CI polling. If `head_pipeline` is `null` and CI evidence is required, check by SHA once:
+
+```bash
+glab api '/projects/:id/pipelines?sha=<sha>'
+```
+
+If both checks show no pipeline, report that no pipeline was created instead of polling. If JSON filtering is needed, prefer `python3`; do not assume `jq` or `python` exist.
+
 ## Landing and Remote Cleanup
 
 In Local Landing mode, merge into the selected long-lived branch after verification and review gate pass. Run required post-merge checks before cleanup.
 
-In Remote Review mode, merge only after the user explicitly approves. After merge, delete the remote task branch unless the platform already deleted it or the user says to keep it.
+In Remote Review mode, merge only after the user explicitly approves. After merge, delete the remote task branch unless the platform already deleted it or the user says to keep it. Do not add a remote branch cleanup check when the platform confirms source-branch removal; inspect only when cleanup state is unclear.
 
 In Push Only mode, report the pushed ref and leave merge/MR decisions to the user unless repository preference says otherwise.
 
@@ -91,6 +119,8 @@ Stop when commit scope is unclear, task-related checks fail, delivery mode is un
 - Merging an MR/PR because it was created.
 - Letting `git add .` stage unrelated user work.
 - Deleting remote branches before the work has landed.
+- Pre-listing MR/PRs before creation on the normal path.
+- Polling CI when MR/PR status already proves the required state.
 
 ## Red Flags
 

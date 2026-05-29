@@ -16,7 +16,7 @@ Do not implement directly on the long-lived branch. Use it as the clean base for
 
 New tasks default to a `type/slug` task branch plus an isolated worktree, created from the selected long-lived branch.
 
-Before creating a worktree, detect whether the current directory is already a linked worktree and whether it is inside a submodule. Do not create nested worktrees.
+Use a lean preflight before creating a worktree: gather current branch, dirty state, worktree status, and submodule/nested-worktree risk in the fewest commands practical. Do not create nested worktrees.
 
 In existing-changes mode, work in place only when the user clearly wants current dirty changes delivered. If those changes are on a long-lived branch, stop and confirm whether to move them to a task branch before staging.
 
@@ -51,8 +51,8 @@ After landing:
 - confirm the worktree has no uncommitted task work
 - switch the main checkout back to the selected long-lived branch
 - remove the task worktree if this workflow created it
-- prune worktrees
 - delete the local task branch
+- run `git worktree prune` only when stale entries are detected or after failed/aborted worktree operations
 
 Do not remove a worktree that is harness-owned, contains unrelated user changes, or was not created for this delivery unit.
 

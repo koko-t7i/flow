@@ -13,7 +13,7 @@ The snapshot is local cache, not repository state:
 
 The script moves any pre-existing `~/.cache/codex-localflow/` contents into the new location on first run.
 
-Refresh it when missing, older than 24 hours, or when the task depends on live auth or permissions:
+Reuse a fresh snapshot for normal work. Refresh it only when missing, older than 24 hours, or when the task depends on live auth or permissions:
 
 ```bash
 uv run ./localflow/scripts/check_environment.py
