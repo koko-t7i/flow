@@ -14,7 +14,21 @@ Before committing, make a version decision for the target repository. If reposit
 
 When `[version_policy] enabled = true`, bump one of the configured `files` in the same commit if the staged diff changes shipped behavior, public commands, APIs, install/update behavior, package contents, or a bug in released capability. Use the configured `scheme`; if no scheme is known, default to SemVer. Do not bump for README wording, comments, spelling, tests-only changes, or internal refactors with no user-visible contract change.
 
-The final report must include either `version bumped to <version> because <reason>` or `version unchanged because <reason>`.
+For SemVer, choose the smallest version bump that honestly describes the shipped change:
+
+| Bump | Rule | Examples |
+| --- | --- | --- |
+| `PATCH` `x.y.Z` | Backward-compatible fix. | Bug fix, security fix without public contract break, correction to released commands/config/install/update behavior, or workflow rule correction. |
+| `MINOR` `x.Y.0` | Backward-compatible public capability addition. | New public command, API, config option, workflow capability, snapshot field, package content, install/update behavior, or deprecation notice. |
+| `MAJOR` `X.0.0` | Incompatible public contract change. | Removed or renamed command/API/config/schema, incompatible default behavior change, or migration that requires users or agents to change usage. |
+
+When multiple categories apply, choose the highest bump: `MAJOR` over `MINOR` over `PATCH`. Reset lower segments when bumping `MINOR` or `MAJOR`.
+
+Treat `0.y.z` versions with the same table unless the target repository defines a stricter pre-1.0 policy. Do not turn every pre-1.0 change into `MINOR` by default; use `PATCH` for small backward-compatible fixes such as `0.1.0` to `0.1.1`.
+
+If `[version_policy] enabled = false`, no version source exists, or the staged change is non-shipping only, leave the version unchanged. Stop when a bump is required but configured version files are missing, cannot be parsed, or cannot be safely updated in the same commit.
+
+The final report must include either `version bumped from <old> to <new> because <reason>` or `version unchanged because <reason>`.
 
 Use an English Conventional Commit:
 
