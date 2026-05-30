@@ -1,4 +1,4 @@
 interface:
   display_name: "Localflow"
   short_description: "本地环境检查、变更验证、提交与推送流程"
-  default_prompt: "Use $localflow for this repo change: run `$localflow check` when local CLI/auth/permission capability matters, clarify unclear requirements first, choose the right branch/worktree mode, run relevant checks, review, commit, and push safely."
+  default_prompt: "Use $localflow for this repo change: run `$localflow check` when local CLI/auth/permission capability matters, clarify unclear requirements first, default to an isolated task worktree instead of editing the original branch, run relevant checks, review, commit, and push safely."
