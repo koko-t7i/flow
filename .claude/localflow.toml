@@ -1,0 +1,30 @@
+version = 1
+
+base_branch = "main"
+delivery_mode = "remote_review"
+worktree_mode = "isolated"
+
+[version_policy]
+enabled = true
+scheme = "semver"
+files = [".claude-plugin/plugin.json"]
+
+[validation]
+docs = [
+  "python3 \"$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py\" ./localflow",
+  "claude plugin validate .",
+  "git diff --check",
+]
+code = ["python3 -m unittest discover -s tests"]
+pre_commit = [
+  "python3 \"$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py\" ./localflow",
+  "claude plugin validate .",
+  "git diff --check",
+  "python3 -m unittest discover -s tests",
+]
+
+[delivery]
+remote_provider = "github"
+create_review = true
+wait_for_ci = false
+cleanup_remote_branch = "auto"

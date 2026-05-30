@@ -8,13 +8,15 @@ Treat the long-lived branch, task branch, worktree, remote branch, and MR/PR as 
 
 Use one repository long-lived branch as the base and return target. Allowed long-lived branches are `main`, `test`, and `dev`.
 
-If a repository preference is already known in the conversation or memory, reuse it. Otherwise choose from the existing `main`/`test`/`dev` branches. If multiple are plausible and the user has not chosen, ask once and then treat the answer as fixed for that repository.
+If repository config sets `base_branch`, use it after confirming the branch exists. Otherwise, if a repository preference is already known in the conversation or memory, reuse it. Otherwise choose from the existing `main`/`test`/`dev` branches. If multiple are plausible and the user has not chosen, ask once and then treat the answer as fixed for that repository.
 
 Do not implement directly on the long-lived branch. Use it as the clean base for task branches and as the final local resting branch after cleanup.
 
 ## Task Branch and Worktree
 
 New tasks default to a `type/slug` task branch plus an isolated worktree, created from the selected long-lived branch.
+
+If repository config sets `worktree_mode = "isolated"`, use an isolated worktree. If it sets `worktree_mode = "in_place"`, work in place only when the current branch is not a long-lived branch and dirty-tree ownership is clear.
 
 Use a lean preflight before creating a worktree: gather current branch, dirty state, worktree status, and submodule/nested-worktree risk in the fewest commands practical. Do not create nested worktrees.
 
@@ -58,7 +60,7 @@ Do not remove a worktree that is harness-owned, contains unrelated user changes,
 
 ## Stop Conditions
 
-Stop when the long-lived branch cannot be chosen, the safe base cannot be identified, dirty-tree ownership is unclear, worktree isolation cannot be created, or cleanup would affect work outside this delivery unit.
+Stop when configured `base_branch` does not exist, configured `worktree_mode` is unsafe for the current branch, the long-lived branch cannot be chosen, the safe base cannot be identified, dirty-tree ownership is unclear, worktree isolation cannot be created, or cleanup would affect work outside this delivery unit.
 
 ## Common Mistakes
 

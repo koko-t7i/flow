@@ -15,6 +15,8 @@ that work is part of delivering a code change.
 
 ```text
 .claude-plugin/                 # Claude Code plugin and marketplace manifests
+.claude/localflow.toml          # Repo-local Claude Code workflow defaults
+.codex/localflow.toml           # Repo-local Codex workflow defaults
 commands/localflow.md           # Claude Code slash command entrypoint
 skills/localflow                # Claude Code skill (symlink to ./localflow)
 localflow/SKILL.md              # Shared skill workflow, loaded by both hosts
@@ -43,6 +45,46 @@ available locally:
 
 ```bash
 python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
+```
+
+## Repository Config
+
+Projects can commit host-specific workflow defaults to reduce repeated
+decisions:
+
+```text
+.codex/localflow.toml
+.claude/localflow.toml
+```
+
+Both files use the same schema. Codex reads `.codex/localflow.toml` first and
+Claude Code reads `.claude/localflow.toml` first; the other file is only a
+fallback. User instructions still override config.
+
+Example:
+
+```toml
+version = 1
+
+base_branch = "main"
+delivery_mode = "remote_review"
+worktree_mode = "isolated"
+
+[version_policy]
+enabled = true
+scheme = "semver"
+files = [".claude-plugin/plugin.json"]
+
+[validation]
+docs = ["git diff --check"]
+code = ["python3 -m unittest discover -s tests"]
+pre_commit = ["git diff --check", "python3 -m unittest discover -s tests"]
+
+[delivery]
+remote_provider = "github"
+create_review = true
+wait_for_ci = false
+cleanup_remote_branch = "auto"
 ```
 
 ## Install

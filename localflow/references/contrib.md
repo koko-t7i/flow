@@ -10,6 +10,12 @@ Before staging, inspect the final diff. Inspect recent commit style with `git lo
 
 Stage only current-task files. Confirm `git diff --cached` contains the intended change and no sensitive or generated junk. Never use `git add .`.
 
+Before committing, make a version decision for the target repository. If repository config defines `[version_policy]`, use it; otherwise inspect common version sources such as `package.json`, `pyproject.toml`, `Cargo.toml`, `pom.xml`, `VERSION`, changelog/release docs, or package manifests. Do not create a version file just because none exists.
+
+When `[version_policy] enabled = true`, bump one of the configured `files` in the same commit if the staged diff changes shipped behavior, public commands, APIs, install/update behavior, package contents, or a bug in released capability. Use the configured `scheme`; if no scheme is known, default to SemVer. Do not bump for README wording, comments, spelling, tests-only changes, or internal refactors with no user-visible contract change.
+
+The final report must include either `version bumped to <version> because <reason>` or `version unchanged because <reason>`.
+
 Use an English Conventional Commit:
 
 ```text
@@ -34,7 +40,7 @@ Resolve delivery mode once per repository and reuse it by default:
 - **Local Landing:** merge the task branch into the selected long-lived branch locally.
 - **Push Only:** push the task branch without MR/PR or local landing.
 
-If no preference is known, prefer Remote Review when a remote exists and `gh` or `glab` is available for that host. Use Local Landing when MR/PR tooling is unavailable or the repo is local-only. Use Push Only only when requested or when repository constraints require it.
+If repository config sets `delivery_mode`, use it unless the user explicitly requested a different delivery. If no preference is known, prefer Remote Review when a remote exists and `gh` or `glab` is available for that host. Use Local Landing when MR/PR tooling is unavailable or the repo is local-only. Use Push Only only when requested or when repository constraints require it.
 
 MR/PR creation is automatic in Remote Review mode. MR/PR merge always requires explicit user approval after review.
 
@@ -58,7 +64,7 @@ In Remote Review mode:
 
 ### Lean Remote Review Path
 
-When the environment snapshot or the current session has already proven remote auth for this host, do not re-run expensive discovery commands unless something fails.
+When the environment snapshot or the current session has already proven remote auth for this host, do not re-run expensive discovery commands unless something fails. If repository config sets `[delivery] remote_provider`, use that provider unless set to `auto`.
 
 For a normal GitLab MR from the current task branch, do not pre-list MRs. Prefer this short path:
 
@@ -108,10 +114,12 @@ Report:
 - review result and remaining risk
 - remote branch cleanup
 - local branch/worktree cleanup
+- localflow config path used, or `absent`
+- version decision and reason
 
 ## Stop Conditions
 
-Stop when commit scope is unclear, task-related checks fail, delivery mode is unknown, auth recovery would expose secrets, force push would be required without approval, MR/PR merge lacks explicit approval, or remote branch cleanup ownership is unclear.
+Stop when configured version files are missing while version bump is required, commit scope is unclear, task-related checks fail, delivery mode is unknown, auth recovery would expose secrets, force push would be required without approval, MR/PR merge lacks explicit approval, or remote branch cleanup ownership is unclear.
 
 ## Common Mistakes
 
