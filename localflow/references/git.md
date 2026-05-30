@@ -10,17 +10,19 @@ Use one repository long-lived branch as the base and return target. Allowed long
 
 If repository config sets `base_branch`, use it after confirming the branch exists. Otherwise, if a repository preference is already known in the conversation or memory, reuse it. Otherwise choose from the existing `main`/`test`/`dev` branches. If multiple are plausible and the user has not chosen, ask once and then treat the answer as fixed for that repository.
 
-Do not implement directly on the long-lived branch. Use it as the clean base for task branches and as the final local resting branch after cleanup.
+Do not implement directly on the long-lived branch or original checkout. Use it only as the clean base for task worktrees and as the final local resting branch after cleanup.
 
 ## Task Branch and Worktree
 
-New tasks default to a `type/slug` task branch plus an isolated worktree, created from the selected long-lived branch.
+New tasks default to a `type/slug` task branch plus an isolated worktree, created from the selected long-lived branch. Missing `worktree_mode` means `isolated`.
 
-If repository config sets `worktree_mode = "isolated"`, use an isolated worktree. If it sets `worktree_mode = "in_place"`, work in place only when the current branch is not a long-lived branch and dirty-tree ownership is clear.
+Do not ask whether to create a worktree for normal implementation work. Create or reuse a safe task worktree before editing files. If the current directory is already a linked worktree, reuse it only when it is on a task branch, not nested, and dirty-tree ownership is clear.
+
+If repository config sets `worktree_mode = "isolated"`, use an isolated worktree. If it sets `worktree_mode = "in_place"`, treat that as an explicit exception: work in place only when the user clearly requested current-branch delivery, the current branch is not a long-lived branch, and dirty-tree ownership is clear.
 
 Use a lean preflight before creating a worktree: gather current branch, dirty state, worktree status, and submodule/nested-worktree risk in the fewest commands practical. Do not create nested worktrees.
 
-In existing-changes mode, work in place only when the user clearly wants current dirty changes delivered. If those changes are on a long-lived branch, stop and confirm whether to move them to a task branch before staging.
+In existing-changes mode, do not keep editing the original checkout by default. Stop when the original checkout is dirty, identify the files, and move or recreate the work in a task worktree only after the user clearly confirms those changes belong to the current task. If those changes are on a long-lived branch, do not stage or continue there.
 
 Track lifecycle provenance:
 
@@ -60,11 +62,12 @@ Do not remove a worktree that is harness-owned, contains unrelated user changes,
 
 ## Stop Conditions
 
-Stop when configured `base_branch` does not exist, configured `worktree_mode` is unsafe for the current branch, the long-lived branch cannot be chosen, the safe base cannot be identified, dirty-tree ownership is unclear, worktree isolation cannot be created, or cleanup would affect work outside this delivery unit.
+Stop when configured `base_branch` does not exist, configured `worktree_mode` is unsafe for the current branch, the long-lived branch cannot be chosen, the safe base cannot be identified, dirty-tree ownership is unclear, worktree isolation cannot be created, existing changes cannot be safely moved to a task worktree, or cleanup would affect work outside this delivery unit.
 
 ## Common Mistakes
 
 - Starting from current `HEAD` when the task should start from the long-lived branch.
+- Editing files in the original checkout before entering a task worktree.
 - Creating a nested worktree.
 - Cleaning a task worktree before Remote Review has merged.
 - Leaving the checkout on a task branch after landing.
