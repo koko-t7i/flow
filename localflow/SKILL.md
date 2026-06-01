@@ -22,13 +22,13 @@ This is a read-only environment check, not a delivery workflow. Do not clarify r
 
    ```bash
    # 1. Repo-local copy when cwd is inside the localflow repo.
-   uv run ./localflow/scripts/check_environment.py --cwd "$PWD"
+   uv run python ./localflow/scripts/check_environment.py --cwd "$PWD"
 
    # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
-   uv run "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/check_environment.py" --cwd "$PWD"
+   uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/check_environment.py" --cwd "$PWD"
 
    # 3. Codex skill install.
-   uv run "$HOME/.codex/skills/localflow/scripts/check_environment.py" --cwd "$PWD"
+   uv run python "$HOME/.codex/skills/localflow/scripts/check_environment.py" --cwd "$PWD"
    ```
 
    If none of these paths exist on the current machine, stop and ask the user to point at the installed `check_environment.py`.
@@ -45,13 +45,13 @@ This command creates or inspects the MR/PR for the current already-committed tas
 
    ```bash
    # 1. Repo-local copy when cwd is inside the localflow repo.
-   uv run ./localflow/scripts/mr.py --cwd "$PWD" --host codex
+   uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex
 
    # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
-   uv run "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/mr.py" --cwd "$PWD" --host claude
+   uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/mr.py" --cwd "$PWD" --host claude
 
    # 3. Codex skill install.
-   uv run "$HOME/.codex/skills/localflow/scripts/mr.py" --cwd "$PWD" --host codex
+   uv run python "$HOME/.codex/skills/localflow/scripts/mr.py" --cwd "$PWD" --host codex
    ```
 
 2. Report the Markdown snapshot path, JSON snapshot path, MR/PR URL, action, and stop reason when present. Do not hand-write fallback `git`, `gh`, or `glab` commands unless the script reports a missing script path.
@@ -66,13 +66,13 @@ This command only cleans already-landed delivery units. It never merges. On a ta
 
    ```bash
    # 1. Repo-local copy when cwd is inside the localflow repo.
-   uv run ./localflow/scripts/clean.py --cwd "$PWD" --host codex
+   uv run python ./localflow/scripts/clean.py --cwd "$PWD" --host codex
 
    # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
-   uv run "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/clean.py" --cwd "$PWD" --host claude
+   uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/clean.py" --cwd "$PWD" --host claude
 
    # 3. Codex skill install.
-   uv run "$HOME/.codex/skills/localflow/scripts/clean.py" --cwd "$PWD" --host codex
+   uv run python "$HOME/.codex/skills/localflow/scripts/clean.py" --cwd "$PWD" --host codex
    ```
 
 2. Report the Markdown snapshot path, JSON snapshot path, cleanup action, cleaned branches, skipped branches, and stop reason when present. Do not manually delete branches or worktrees after the script stops.

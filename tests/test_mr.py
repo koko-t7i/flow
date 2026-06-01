@@ -115,6 +115,33 @@ remote_provider = "gitlab"
         self.assertEqual(repo_flow.review_view_command("github", "feat/example")[:3], ["gh", "pr", "view"])
         self.assertEqual(repo_flow.review_view_command("gitlab", "feat/example")[:3], ["glab", "mr", "view"])
 
+    def test_simple_toml_preserves_escaped_quotes_in_command_arrays(self):
+        config = repo_flow.parse_simple_toml(
+            """
+[validation]
+pre_commit = [
+  "python3 \\"$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py\\" ./localflow",
+  "git diff --check",
+]
+"""
+        )
+
+        self.assertEqual(
+            repo_flow.section(config, "validation")["pre_commit"],
+            [
+                'python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow',
+                "git diff --check",
+            ],
+        )
+
+    def test_shell_command_env_removes_uv_python_path(self):
+        env = repo_flow.shell_command_env(
+            base_env={"UV_RUN_RECURSION_DEPTH": "1", "PATH": "/uv/python/bin:/usr/bin"},
+            executable="/uv/python/bin/python3",
+        )
+
+        self.assertEqual(env["PATH"], "/usr/bin")
+
     def test_existing_pr_returns_status_without_duplicate_create(self):
         root = self.make_repo()
         review = {

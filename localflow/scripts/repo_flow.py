@@ -8,6 +8,8 @@ import os
 import re
 import shlex
 import subprocess
+import sys
+import ast
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -39,6 +41,7 @@ def run_command(
         result = subprocess.run(
             args,
             cwd=cwd,
+            env=shell_command_env() if shell else None,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -63,6 +66,26 @@ def run_command(
         result.stderr.strip(),
         args,
     )
+
+
+def shell_command_env(
+    base_env: dict[str, str] | None = None,
+    executable: str | None = None,
+) -> dict[str, str]:
+    env = dict(base_env or os.environ)
+    if not env.get("UV_RUN_RECURSION_DEPTH"):
+        return env
+
+    executable_dir = str(Path(executable or sys.executable).resolve().parent)
+    path_parts = []
+    for part in env.get("PATH", "").split(os.pathsep):
+        if not part:
+            continue
+        if str(Path(part).resolve()) == executable_dir:
+            continue
+        path_parts.append(part)
+    env["PATH"] = os.pathsep.join(path_parts)
+    return env
 
 
 def command_text(args: list[str] | str) -> str:
@@ -98,7 +121,12 @@ def parse_simple_toml(text: str) -> dict[str, object]:
     def assign(target: dict[str, object], key: str, raw_value: str) -> None:
         value = raw_value.strip().rstrip(",")
         if value.startswith("[") and value.endswith("]"):
-            target[key] = re.findall(r'"([^"]*)"', value)
+            try:
+                parsed = ast.literal_eval(value)
+            except (SyntaxError, ValueError):
+                target[key] = re.findall(r'"([^"]*)"', value)
+            else:
+                target[key] = parsed if isinstance(parsed, list) else value
         elif value.lower() in {"true", "false"}:
             target[key] = value.lower() == "true"
         elif value.startswith('"') and value.endswith('"'):

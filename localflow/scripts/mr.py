@@ -12,6 +12,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+sys.dont_write_bytecode = True
+
 import repo_flow as flow
 
 

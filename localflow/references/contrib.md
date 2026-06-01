@@ -81,7 +81,7 @@ In Remote Review mode:
 Use `localflow mr` when the user wants to create or inspect the current branch MR/PR without running the full implementation workflow. The command is script-driven:
 
 ```bash
-uv run ./localflow/scripts/mr.py --cwd "$PWD" --host codex
+uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex
 ```
 
 The script validates that the current branch is a clean task branch with commits ahead of the base branch, runs configured `pre_commit` checks, pushes the branch, and creates or reports the existing review request. It never commits, merges, or cleans up.
@@ -89,7 +89,7 @@ The script validates that the current branch is a clean task branch with commits
 Use `localflow clean` only after the work has landed:
 
 ```bash
-uv run ./localflow/scripts/clean.py --cwd "$PWD" --host codex
+uv run python ./localflow/scripts/clean.py --cwd "$PWD" --host codex
 ```
 
 The clean script never merges. On a task branch, it must refuse cleanup unless the current branch's MR/PR is already merged, or the task branch is already merged into the base branch for Local Landing. On a long-lived branch, it scans local branches, owned worktrees, and remote branches, then cleans only landed candidates. If an MR/PR is open, closed without merge, has a mismatched head SHA, the worktree is dirty, or lifecycle ownership is unclear, that candidate is skipped without deleting its remote branch, local branch, or worktree.

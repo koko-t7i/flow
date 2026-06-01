@@ -16,17 +16,17 @@ The script moves any pre-existing `~/.cache/codex-localflow/` contents into the 
 Reuse a fresh snapshot for normal work. Refresh it only when missing, older than 24 hours, or when the task depends on live auth or permissions:
 
 ```bash
-uv run ./localflow/scripts/check_environment.py
+uv run python ./localflow/scripts/check_environment.py
 ```
 
 If the current repository does not contain the skill source tree, run the installed skill copy. Probe the candidates below in order and use the first that resolves:
 
 ```bash
 # Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
-uv run "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/check_environment.py" --cwd "$PWD"
+uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/check_environment.py" --cwd "$PWD"
 
 # Codex skill install.
-uv run "$HOME/.codex/skills/localflow/scripts/check_environment.py" --cwd "$PWD"
+uv run python "$HOME/.codex/skills/localflow/scripts/check_environment.py" --cwd "$PWD"
 ```
 
 Read the Markdown summary first for quick decisions. Read the JSON when you need exact failure kinds, command paths, or probe output.
