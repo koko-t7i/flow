@@ -31,7 +31,7 @@ tests/                          # Script tests
 Refresh the local environment capability snapshot:
 
 ```bash
-uv run ./localflow/scripts/check_environment.py
+uv run python ./localflow/scripts/check_environment.py
 ```
 
 Validate the Claude Code plugin before installing:
