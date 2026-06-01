@@ -18,7 +18,7 @@ New tasks default to a `type/slug` task branch plus an isolated worktree, create
 
 Do not ask whether to create a worktree for normal implementation work. Create or reuse a safe task worktree before editing files. If the current directory is already a linked worktree, reuse it only when it is on a task branch, not nested, and dirty-tree ownership is clear.
 
-If repository config sets `worktree_mode = "isolated"`, use an isolated worktree. If it sets `worktree_mode = "in_place"`, treat that as an explicit exception: work in place only when the user clearly requested current-branch delivery, the current branch is not a long-lived branch, and dirty-tree ownership is clear.
+If repository config sets `worktree_mode = "isolated"`, use an isolated worktree. If it sets `worktree_mode = "in_place"`, treat the config as durable current-branch delivery approval for that repository, so the user does not need to repeat it every task. Work in place only when the current branch is not a long-lived branch and dirty-tree ownership is clear.
 
 Use a lean preflight before creating a worktree: gather current branch, dirty state, worktree status, and submodule/nested-worktree risk in the fewest commands practical. Do not create nested worktrees.
 

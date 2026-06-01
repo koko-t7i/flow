@@ -1,6 +1,6 @@
 {
   "name": "localflow",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Local repository workflow for scoped changes, tests, review, commits, pushes, and safe cleanup.",
   "author": {
     "name": "koko-t7i",

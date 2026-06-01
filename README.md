@@ -64,7 +64,9 @@ fallback. User instructions still override config.
 Localflow defaults to `worktree_mode = "isolated"` for implementation tasks:
 create a task branch in an isolated worktree, and keep the original checkout as
 the base/return point. Use `in_place` only as an explicit exception when the
-user wants current-branch delivery and dirty-tree ownership is clear.
+repository should persist current-branch delivery without repeated user
+instructions. The current branch must still be safe and dirty-tree ownership
+must be clear.
 
 Example:
 
