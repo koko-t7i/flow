@@ -12,6 +12,16 @@ If repository config sets `base_branch`, use it after confirming the branch exis
 
 Do not implement directly on the long-lived branch or original checkout. Use it only as the clean base for task worktrees and as the final local resting branch after cleanup.
 
+## Long-Lived Branch Destructive Guard
+
+When the current branch is `main`, `test`, or `dev`, do not run destructive operations unless the user has explicitly instructed or confirmed that exact operation.
+
+Destructive operations include commands that discard, overwrite, delete, or force-update work, such as `git reset --hard`, `git clean`, `git checkout -- <path>`, destructive `git restore`, forced branch or worktree deletion, `rm -rf` inside repository-owned paths, and force pushes. Treat equivalent commands and aliases the same way.
+
+Before using an exception, state the current branch, exact command, affected files or resources, and expected data loss or cleanup effect. Wait for the user's confirmation before continuing.
+
+Read-only inspection, fetch, fast-forward synchronization, and creating an isolated task worktree from a long-lived branch are not destructive operations.
+
 ## Task Branch and Worktree
 
 New tasks default to a `type/slug` task branch plus an isolated worktree, created from the selected long-lived branch. Missing `worktree_mode` means `isolated`.
@@ -68,6 +78,7 @@ Stop when configured `base_branch` does not exist, configured `worktree_mode` is
 
 - Starting from current `HEAD` when the task should start from the long-lived branch.
 - Editing files in the original checkout before entering a task worktree.
+- Running destructive operations from `main`, `test`, or `dev` without explicit user confirmation.
 - Creating a nested worktree.
 - Cleaning a task worktree before Remote Review has merged.
 - Leaving the checkout on a task branch after landing.
@@ -75,6 +86,7 @@ Stop when configured `base_branch` does not exist, configured `worktree_mode` is
 ## Red Flags
 
 - Current branch is `main`, `test`, or `dev` and edits are about to start in place.
+- Current branch is `main`, `test`, or `dev` and a destructive command is about to run without explicit confirmation.
 - Uncommitted files exist but the task does not explain ownership.
 - A task branch does not follow `type/slug`.
 - Cleanup would delete work without explicit landing or abort confirmation.
