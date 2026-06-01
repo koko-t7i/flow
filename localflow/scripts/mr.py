@@ -91,7 +91,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     mr_config = flow.section(config, "mr")
     remote = str(mr_config.get("remote") or "origin")
     url = flow.remote_url(root, remote, runner)
-    provider_result = flow.resolve_provider(config, url)
+    provider_result = flow.resolve_provider(config, url, root, runner)
     if not provider_result.get("provider"):
         return provider_result
     provider = str(provider_result["provider"])

@@ -208,15 +208,34 @@ def ref_exists(cwd: Path, ref: str, runner=run_command) -> bool:
     return runner(["git", "rev-parse", "--verify", "--quiet", ref], cwd=cwd).ok
 
 
+def resolved_branch_ref(cwd: Path, branch: str, runner=run_command, *, prefer_remote: bool = False) -> str | None:
+    refs = [f"origin/{branch}", branch] if prefer_remote else [branch, f"origin/{branch}"]
+    for ref in refs:
+        if ref_exists(cwd, ref, runner):
+            return ref
+    return None
+
+
 def resolve_base_branch(cwd: Path, config: dict[str, object], runner=run_command) -> dict[str, str] | dict[str, object]:
     configured = config.get("base_branch")
-    candidates = [str(configured)] if configured else ["main", "test", "dev"]
-    for branch in candidates:
-        if ref_exists(cwd, branch, runner):
-            return {"name": branch, "ref": branch}
-        remote_ref = f"origin/{branch}"
-        if ref_exists(cwd, remote_ref, runner):
-            return {"name": branch, "ref": remote_ref}
+    if configured:
+        branch = str(configured)
+        ref = resolved_branch_ref(cwd, branch, runner)
+        if ref:
+            return {"name": branch, "ref": ref}
+        return stop("base_branch_missing", f"Could not resolve base branch from {branch}.")
+
+    candidates = ["main", "test", "dev"]
+    matches: list[tuple[int, int, str, str]] = []
+    for index, branch in enumerate(candidates):
+        ref = resolved_branch_ref(cwd, branch, runner, prefer_remote=True)
+        if not ref:
+            continue
+        ahead = commits_ahead(cwd, ref, runner)
+        matches.append((ahead if ahead is not None else sys.maxsize, index, branch, ref))
+    if matches:
+        _, _, branch, ref = min(matches)
+        return {"name": branch, "ref": ref}
     return stop("base_branch_missing", f"Could not resolve base branch from {', '.join(candidates)}.")
 
 
@@ -233,7 +252,37 @@ def remote_host(url: str | None) -> str | None:
     return urlparse(url).hostname
 
 
-def resolve_provider(config: dict[str, object], url: str | None) -> dict[str, str] | dict[str, object]:
+def infer_provider_from_cli_auth(
+    host: str,
+    cwd: Path,
+    runner=run_command,
+) -> dict[str, str] | dict[str, object]:
+    matches: list[str] = []
+    checks = [
+        ("gitlab", ["glab", "auth", "status", "--hostname", host]),
+        ("github", ["gh", "auth", "status", "--hostname", host]),
+    ]
+    for provider, args in checks:
+        result = runner(args, cwd=cwd, timeout=8)
+        if result.ok:
+            matches.append(provider)
+    if len(matches) == 1:
+        return {"provider": matches[0]}
+    if len(matches) > 1:
+        return stop(
+            "provider_ambiguous",
+            f"Both GitHub and GitLab auth are configured for remote host: {host}. "
+            "Set [delivery].remote_provider explicitly.",
+        )
+    return {}
+
+
+def resolve_provider(
+    config: dict[str, object],
+    url: str | None,
+    cwd: Path | None = None,
+    runner=run_command,
+) -> dict[str, str] | dict[str, object]:
     configured = str(section(config, "delivery").get("remote_provider") or "auto").lower()
     if configured in {"github", "gitlab"}:
         return {"provider": configured}
@@ -244,6 +293,10 @@ def resolve_provider(config: dict[str, object], url: str | None) -> dict[str, st
         return {"provider": "github"}
     if host and "gitlab" in host:
         return {"provider": "gitlab"}
+    if host and cwd is not None:
+        cli_result = infer_provider_from_cli_auth(host, cwd, runner)
+        if cli_result:
+            return cli_result
     return stop("provider_ambiguous", f"Could not infer review provider from remote host: {host or 'absent'}.")
 
 
