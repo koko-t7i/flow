@@ -12,6 +12,27 @@ If repository config sets `base_branch`, use it after confirming the branch exis
 
 Do not implement directly on the long-lived branch or original checkout. Use it only as the clean base for task worktrees and as the final local resting branch after cleanup.
 
+## Long-Lived Branch Destructive Guard
+
+When the current branch is `main`, `test`, or `dev`, do not run destructive operations unless the user has explicitly instructed or confirmed that exact operation.
+
+Destructive operations include commands that discard, overwrite, delete, or force-update work. Treat equivalent commands and aliases the same way.
+
+| Command pattern | What can be lost | Long-lived branch rule |
+| --- | --- | --- |
+| `git reset --hard` | Uncommitted tracked-file edits and index state. | Require explicit confirmation. |
+| `git clean -fd`, `git clean -fdx` | Untracked files, ignored files with `-x`, generated or local-only files. | Require explicit confirmation. |
+| `git checkout -- <path>` | Local edits in selected tracked files. | Require explicit confirmation. |
+| `git restore <path>`, `git restore --source ... <path>` | Local edits in selected tracked files, or replacement from another tree. | Require explicit confirmation. |
+| `git branch -D <branch>` | Local commits reachable only from that branch. | Require explicit confirmation; never target a long-lived branch. |
+| `git worktree remove --force <path>` | Uncommitted work inside that worktree. | Require explicit confirmation and ownership proof. |
+| `rm -rf <repo-path>` | Files or directories under repository ownership. | Require explicit confirmation. |
+| `git push --force`, `git push --force-with-lease` | Remote commits or review history. | Require explicit confirmation; never force-push a shared long-lived branch. |
+
+Before using an exception, state the current branch, exact command, affected files or resources, and expected data loss or cleanup effect. Wait for the user's confirmation before continuing.
+
+Read-only inspection, fetch, fast-forward synchronization, and creating an isolated task worktree from a long-lived branch are not destructive operations.
+
 ## Task Branch and Worktree
 
 New tasks default to a `type/slug` task branch plus an isolated worktree, created from the selected long-lived branch. Missing `worktree_mode` means `isolated`.
@@ -68,6 +89,7 @@ Stop when configured `base_branch` does not exist, configured `worktree_mode` is
 
 - Starting from current `HEAD` when the task should start from the long-lived branch.
 - Editing files in the original checkout before entering a task worktree.
+- Running destructive operations from `main`, `test`, or `dev` without explicit user confirmation.
 - Creating a nested worktree.
 - Cleaning a task worktree before Remote Review has merged.
 - Leaving the checkout on a task branch after landing.
@@ -75,6 +97,7 @@ Stop when configured `base_branch` does not exist, configured `worktree_mode` is
 ## Red Flags
 
 - Current branch is `main`, `test`, or `dev` and edits are about to start in place.
+- Current branch is `main`, `test`, or `dev` and a destructive command is about to run without explicit confirmation.
 - Uncommitted files exist but the task does not explain ownership.
 - A task branch does not follow `type/slug`.
 - Cleanup would delete work without explicit landing or abort confirmation.
