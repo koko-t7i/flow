@@ -207,13 +207,25 @@ def cleanup_scanned_candidate(
     remote_cleanup: dict[str, object] = {"skipped": not cleanup_remote or not remote_exists}
     if cleanup_remote and remote_exists:
         deleted = flow.delete_remote_branch(root, remote, branch, url, runner)
+        tracking = flow.delete_remote_tracking_ref(root, remote, branch, runner) if deleted.ok else None
         remote_cleanup = {
             "ok": deleted.ok,
             "command": flow.command_text(deleted.args),
             "stderr": deleted.stderr,
+            "tracking": (
+                {
+                    "ok": tracking.ok,
+                    "command": flow.command_text(tracking.args),
+                    "stderr": tracking.stderr,
+                }
+                if tracking
+                else None
+            ),
         }
         if not deleted.ok:
             return "failed", {"branch": branch, "remote_cleanup": remote_cleanup}, "remote_branch_delete_failed"
+        if tracking and not tracking.ok:
+            return "failed", {"branch": branch, "remote_cleanup": remote_cleanup}, "remote_tracking_delete_failed"
 
     local_steps: list[dict[str, object]] = []
     if worktree:
@@ -369,13 +381,25 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     remote_cleanup: dict[str, object] = {"skipped": cleanup_setting in {"false", "never", "no"}}
     if not remote_cleanup["skipped"]:
         deleted = flow.delete_remote_branch(root, remote, branch, url, runner)
+        tracking = flow.delete_remote_tracking_ref(root, remote, branch, runner) if deleted.ok else None
         remote_cleanup = {
             "ok": deleted.ok,
             "command": flow.command_text(deleted.args),
             "stderr": deleted.stderr,
+            "tracking": (
+                {
+                    "ok": tracking.ok,
+                    "command": flow.command_text(tracking.args),
+                    "stderr": tracking.stderr,
+                }
+                if tracking
+                else None
+            ),
         }
         if not deleted.ok:
             return flow.stop("remote_branch_delete_failed", "Could not delete the remote task branch.", remote_cleanup=remote_cleanup)
+        if tracking and not tracking.ok:
+            return flow.stop("remote_tracking_delete_failed", "Could not delete the remote-tracking task branch.", remote_cleanup=remote_cleanup)
 
     ok, local_steps, reason = cleanup_local(root, branch, base_name, landed_by, runner)
     if not ok:

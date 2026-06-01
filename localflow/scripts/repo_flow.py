@@ -342,6 +342,15 @@ def delete_remote_branch(cwd: Path, remote: str, branch: str, url: str | None, r
     return result
 
 
+def delete_remote_tracking_ref(cwd: Path, remote: str, branch: str, runner=run_command) -> CommandResult:
+    ref = f"{remote}/{branch}"
+    result = runner(["git", "branch", "-dr", ref], cwd=cwd)
+    missing = "not found" in result.stderr.lower() or "branch not found" in result.stderr.lower()
+    if result.ok or missing:
+        return CommandResult(True, result.exit_code, result.stdout, result.stderr, result.args)
+    return result
+
+
 def review_view_command(provider: str, branch: str) -> list[str]:
     if provider == "github":
         return [

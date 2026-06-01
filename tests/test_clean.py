@@ -128,6 +128,7 @@ cleanup_remote_branch = "auto"
         ]
         responses[("git", "fetch", "origin", "main")] = [ok([])]
         responses[("git", "push", "origin", "--delete", "feat/example")] = [ok([])]
+        responses[("git", "branch", "-dr", "origin/feat/example")] = [ok([])]
         responses[("git", "rev-parse", "--git-dir")] = [ok([], ".git")]
         responses[("git", "rev-parse", "--git-common-dir")] = [ok([], ".git")]
         responses[("git", "checkout", "main")] = [ok([])]
@@ -139,6 +140,7 @@ cleanup_remote_branch = "auto"
         self.assertTrue(result["ok"])
         self.assertEqual(result["action"], "cleaned")
         self.assertIn(("git", "push", "origin", "--delete", "feat/example"), runner.calls)
+        self.assertIn(("git", "branch", "-dr", "origin/feat/example"), runner.calls)
         self.assertIn(("git", "branch", "-D", "feat/example"), runner.calls)
 
     def test_main_scans_and_cleans_only_landed_candidates(self):
@@ -185,9 +187,11 @@ branch refs/heads/fix/open
         ]
         responses[("git", "status", "--porcelain")] = [ok([], ""), ok([], "")]
         responses[("git", "push", "origin", "--delete", "docs/merged")] = [ok([])]
+        responses[("git", "branch", "-dr", "origin/docs/merged")] = [ok([])]
         responses[("git", "worktree", "remove", str(merged_tree))] = [ok([])]
         responses[("git", "branch", "-D", "docs/merged")] = [ok([])]
         responses[("git", "push", "origin", "--delete", "fix/remote-only")] = [ok([])]
+        responses[("git", "branch", "-dr", "origin/fix/remote-only")] = [ok([])]
         responses[("git", "worktree", "prune")] = [ok([])]
         runner = FakeRunner(responses)
 
@@ -201,6 +205,7 @@ branch refs/heads/fix/open
         self.assertIn(("git", "worktree", "remove", str(merged_tree)), runner.calls)
         self.assertIn(("git", "branch", "-D", "docs/merged"), runner.calls)
         self.assertIn(("git", "push", "origin", "--delete", "fix/remote-only"), runner.calls)
+        self.assertIn(("git", "branch", "-dr", "origin/fix/remote-only"), runner.calls)
         self.assertNotIn(("git", "push", "origin", "--delete", "fix/open"), runner.calls)
         self.assertNotIn(("git", "worktree", "remove", str(open_tree)), runner.calls)
 
