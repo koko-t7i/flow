@@ -16,7 +16,18 @@ Do not implement directly on the long-lived branch or original checkout. Use it 
 
 When the current branch is `main`, `test`, or `dev`, do not run destructive operations unless the user has explicitly instructed or confirmed that exact operation.
 
-Destructive operations include commands that discard, overwrite, delete, or force-update work, such as `git reset --hard`, `git clean`, `git checkout -- <path>`, destructive `git restore`, forced branch or worktree deletion, `rm -rf` inside repository-owned paths, and force pushes. Treat equivalent commands and aliases the same way.
+Destructive operations include commands that discard, overwrite, delete, or force-update work. Treat equivalent commands and aliases the same way.
+
+| Command pattern | What can be lost | Long-lived branch rule |
+| --- | --- | --- |
+| `git reset --hard` | Uncommitted tracked-file edits and index state. | Require explicit confirmation. |
+| `git clean -fd`, `git clean -fdx` | Untracked files, ignored files with `-x`, generated or local-only files. | Require explicit confirmation. |
+| `git checkout -- <path>` | Local edits in selected tracked files. | Require explicit confirmation. |
+| `git restore <path>`, `git restore --source ... <path>` | Local edits in selected tracked files, or replacement from another tree. | Require explicit confirmation. |
+| `git branch -D <branch>` | Local commits reachable only from that branch. | Require explicit confirmation; never target a long-lived branch. |
+| `git worktree remove --force <path>` | Uncommitted work inside that worktree. | Require explicit confirmation and ownership proof. |
+| `rm -rf <repo-path>` | Files or directories under repository ownership. | Require explicit confirmation. |
+| `git push --force`, `git push --force-with-lease` | Remote commits or review history. | Require explicit confirmation; never force-push a shared long-lived branch. |
 
 Before using an exception, state the current branch, exact command, affected files or resources, and expected data loss or cleanup effect. Wait for the user's confirmation before continuing.
 
