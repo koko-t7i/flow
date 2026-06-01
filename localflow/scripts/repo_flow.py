@@ -385,6 +385,15 @@ def render_markdown(name: str, data: dict[str, object]) -> str:
         lines.extend(["", "## Checks"])
         for check in data["checks"]:  # type: ignore[index]
             lines.append(f"- `{check.get('command')}`: {'passed' if check.get('ok') else 'failed'}")
+    if data.get("cleaned"):
+        lines.extend(["", "## Cleaned"])
+        for item in data["cleaned"]:  # type: ignore[index]
+            lines.append(f"- `{item.get('branch')}`: {item.get('state')}")
+    if data.get("skipped"):
+        lines.extend(["", "## Skipped"])
+        for item in data["skipped"]:  # type: ignore[index]
+            state = f" ({item.get('state')})" if item.get("state") else ""
+            lines.append(f"- `{item.get('branch')}`: {item.get('reason')}{state}")
     return "\n".join(lines) + "\n"
 
 

@@ -92,6 +92,231 @@ def cleanup_local(
     return delete.ok, steps, None if delete.ok else "local_branch_delete_failed"
 
 
+def ref_names(cwd: Path, namespace: str, runner=flow.run_command) -> list[str] | None:
+    result = runner(["git", "for-each-ref", "--format=%(refname:short)", namespace], cwd=cwd)
+    if not result.ok:
+        return None
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def remote_branch_names(cwd: Path, remote: str, runner=flow.run_command) -> list[str] | None:
+    refs = ref_names(cwd, f"refs/remotes/{remote}", runner)
+    if refs is None:
+        return None
+    prefix = f"{remote}/"
+    branches = []
+    for ref in refs:
+        if ref == f"{remote}/HEAD" or not ref.startswith(prefix):
+            continue
+        branches.append(ref[len(prefix) :])
+    return branches
+
+
+def parse_worktree_entries(text: str) -> dict[str, dict[str, object]]:
+    entries: dict[str, dict[str, object]] = {}
+    current: dict[str, object] = {}
+
+    def flush() -> None:
+        branch = current.get("branch")
+        if branch:
+            entries[str(branch)] = dict(current)
+
+    for line in [*text.splitlines(), ""]:
+        if line.startswith("worktree "):
+            flush()
+            current = {"path": Path(line.split(" ", 1)[1])}
+        elif line.startswith("HEAD "):
+            current["head"] = line.split(" ", 1)[1]
+        elif line.startswith("branch "):
+            ref = line.split(" ", 1)[1]
+            if ref.startswith("refs/heads/"):
+                current["branch"] = ref.removeprefix("refs/heads/")
+        elif not line:
+            flush()
+            current = {}
+    return entries
+
+
+def worktree_entries(cwd: Path, runner=flow.run_command) -> dict[str, dict[str, object]] | None:
+    result = runner(["git", "worktree", "list", "--porcelain"], cwd=cwd)
+    if not result.ok:
+        return None
+    return parse_worktree_entries(result.stdout)
+
+
+def ref_sha(cwd: Path, ref: str, runner=flow.run_command) -> str | None:
+    result = runner(["git", "rev-parse", ref], cwd=cwd)
+    return flow.first_line(result.stdout) if result.ok else None
+
+
+def skip(branch: str, reason: str, state: str | None = None) -> dict[str, object]:
+    data: dict[str, object] = {"branch": branch, "reason": reason}
+    if state:
+        data["state"] = state
+    return data
+
+
+def cleanup_scanned_candidate(
+    root: Path,
+    branch: str,
+    *,
+    base_ref: str,
+    provider: str,
+    remote: str,
+    url: str | None,
+    local_exists: bool,
+    remote_exists: bool,
+    worktree: dict[str, object] | None,
+    cleanup_remote: bool,
+    runner=flow.run_command,
+) -> tuple[str, dict[str, object], str | None]:
+    local_sha = ref_sha(root, branch, runner) if local_exists else None
+    remote_sha = ref_sha(root, f"{remote}/{branch}", runner) if remote_exists else None
+    candidate_sha = local_sha or remote_sha or (str(worktree.get("head")) if worktree else None)
+
+    review = flow.find_review(root, provider, branch, runner) if provider else None
+    landed_by = "local_landing"
+    state = "local_landed"
+    review_url = None
+    delete_flag = "-d"
+
+    if review:
+        state = flow.normalize_review_state(review) or "unknown"
+        review_url = str(review.get("url") or "") or None
+        if state != "merged":
+            return "skipped", skip(branch, "review_not_merged", state), None
+        if candidate_sha and review.get("headRefOid") and str(review["headRefOid"]) != candidate_sha:
+            return "skipped", skip(branch, "head_sha_mismatch", state), None
+        landed_by = "remote_review"
+        delete_flag = "-D"
+    else:
+        ref = branch if local_exists else f"{remote}/{branch}"
+        ancestor = runner(["git", "merge-base", "--is-ancestor", ref, base_ref], cwd=root)
+        if not ancestor.ok:
+            return "skipped", skip(branch, "review_not_merged"), None
+
+    if worktree:
+        path = Path(worktree["path"])
+        if not owned_worktree(path):
+            return "skipped", skip(branch, "worktree_ownership_unknown", state), None
+        if not flow.is_clean_worktree(path, runner):
+            return "skipped", skip(branch, "dirty_worktree", state), None
+
+    remote_cleanup: dict[str, object] = {"skipped": not cleanup_remote or not remote_exists}
+    if cleanup_remote and remote_exists:
+        deleted = flow.delete_remote_branch(root, remote, branch, url, runner)
+        remote_cleanup = {
+            "ok": deleted.ok,
+            "command": flow.command_text(deleted.args),
+            "stderr": deleted.stderr,
+        }
+        if not deleted.ok:
+            return "failed", {"branch": branch, "remote_cleanup": remote_cleanup}, "remote_branch_delete_failed"
+
+    local_steps: list[dict[str, object]] = []
+    if worktree:
+        path = Path(worktree["path"])
+        remove = runner(["git", "worktree", "remove", str(path)], cwd=root)
+        local_steps.append({"command": flow.command_text(remove.args), "ok": remove.ok, "stderr": remove.stderr})
+        if not remove.ok:
+            return "failed", {"branch": branch, "local_steps": local_steps}, "worktree_remove_failed"
+
+    if local_exists:
+        delete = runner(["git", "branch", delete_flag, branch], cwd=root)
+        local_steps.append({"command": flow.command_text(delete.args), "ok": delete.ok, "stderr": delete.stderr})
+        if not delete.ok:
+            return "failed", {"branch": branch, "local_steps": local_steps}, "local_branch_delete_failed"
+
+    return (
+        "cleaned",
+        {
+            "branch": branch,
+            "state": state,
+            "landed_by": landed_by,
+            "url": review_url,
+            "remote_cleanup": remote_cleanup,
+            "local_steps": local_steps,
+            "worktree_removed": bool(worktree),
+        },
+        None,
+    )
+
+
+def scan_landed_cleanup(
+    root: Path,
+    config: dict[str, object],
+    config_path: str | None,
+    base_name: str,
+    base_ref: str,
+    provider: str,
+    remote: str,
+    url: str | None,
+    runner=flow.run_command,
+) -> dict[str, object]:
+    local_branches = ref_names(root, "refs/heads", runner)
+    if local_branches is None:
+        return flow.stop("branch_scan_failed", "Could not list local branches.")
+    remote_branches = remote_branch_names(root, remote, runner)
+    if remote_branches is None:
+        return flow.stop("branch_scan_failed", "Could not list remote branches.")
+    worktrees = worktree_entries(root, runner)
+    if worktrees is None:
+        return flow.stop("worktree_scan_failed", "Could not list git worktrees.")
+
+    cleanup_setting = str(flow.section(config, "delivery").get("cleanup_remote_branch") or "auto").lower()
+    cleanup_remote = cleanup_setting not in {"false", "never", "no"}
+    local_set = set(local_branches)
+    remote_set = set(remote_branches)
+    candidates = sorted((local_set | remote_set | set(worktrees)) - flow.LONG_LIVED_BRANCHES)
+
+    cleaned: list[dict[str, object]] = []
+    skipped: list[dict[str, object]] = []
+    needs_prune = False
+    for candidate in candidates:
+        status, item, reason = cleanup_scanned_candidate(
+            root,
+            candidate,
+            base_ref=base_ref,
+            provider=provider,
+            remote=remote,
+            url=url,
+            local_exists=candidate in local_set,
+            remote_exists=candidate in remote_set,
+            worktree=worktrees.get(candidate),
+            cleanup_remote=cleanup_remote,
+            runner=runner,
+        )
+        if status == "failed":
+            return flow.stop(reason or "cleanup_failed", "Cleanup failed while scanning landed branches.", failed=item)
+        if status == "skipped":
+            skipped.append(item)
+            continue
+        cleaned.append(item)
+        needs_prune = needs_prune or bool(item.get("worktree_removed"))
+
+    prune_step = None
+    if needs_prune:
+        prune = runner(["git", "worktree", "prune"], cwd=root)
+        prune_step = {"command": flow.command_text(prune.args), "ok": prune.ok, "stderr": prune.stderr}
+        if not prune.ok:
+            return flow.stop("worktree_prune_failed", "Worktree prune failed after cleanup.", cleaned=cleaned, skipped=skipped, prune_step=prune_step)
+
+    data = {
+        "ok": True,
+        "action": "scanned_cleaned" if cleaned else "noop",
+        "provider": provider or None,
+        "base_branch": base_name,
+        "branch": None,
+        "state": "scanned",
+        "cleaned": cleaned,
+        "skipped": skipped,
+        "prune_step": prune_step,
+        "config_path": config_path,
+    }
+    json_path, md_path = flow.write_outputs("clean", data)
+    return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+
+
 def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     try:
         config, config_path = flow.load_repo_config(cwd, host, runner)
@@ -102,8 +327,6 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     branch = flow.current_branch(root, runner)
     if not branch:
         return flow.stop("detached_head", "Current checkout is detached; localflow clean needs a named task branch.")
-    if branch in flow.LONG_LIVED_BRANCHES:
-        return flow.stop("long_lived_branch", f"Refusing to clean long-lived branch {branch}.")
     if not flow.is_clean_worktree(root, runner):
         return flow.stop("dirty_worktree", "Worktree or staged area is not clean; clean will not delete dirty work.")
 
@@ -119,6 +342,10 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     url = flow.remote_url(root, remote, runner)
     provider_result = flow.resolve_provider(config, url)
     provider = str(provider_result.get("provider") or "")
+
+    if branch in flow.LONG_LIVED_BRANCHES:
+        return scan_landed_cleanup(root, config, config_path, base_name, base_ref, provider, remote, url, runner)
+
     review = flow.find_review(root, provider, branch, runner) if provider else None
 
     landed_by = "local_landing"
