@@ -76,6 +76,24 @@ In Remote Review mode:
 - keep the local task branch and worktree for review, CI, and conflict fixes
 - wait for explicit user approval before merging
 
+## Deterministic MR and Clean Subcommands
+
+Use `localflow mr` when the user wants to create or inspect the current branch MR/PR without running the full implementation workflow. The command is script-driven:
+
+```bash
+uv run ./localflow/scripts/mr.py --cwd "$PWD" --host codex
+```
+
+The script validates that the current branch is a clean task branch with commits ahead of the base branch, runs configured `pre_commit` checks, pushes the branch, and creates or reports the existing review request. It never commits, merges, or cleans up.
+
+Use `localflow clean` only after the work has landed:
+
+```bash
+uv run ./localflow/scripts/clean.py --cwd "$PWD" --host codex
+```
+
+The clean script never merges. It must refuse cleanup unless the current branch's MR/PR is already merged, or the task branch is already merged into the base branch for Local Landing. If the MR/PR is open, closed without merge, has a mismatched head SHA, the worktree is dirty, or lifecycle ownership is unclear, it stops without deleting the remote branch, local branch, or worktree.
+
 ### Lean Remote Review Path
 
 When the environment snapshot or the current session has already proven remote auth for this host, do not re-run expensive discovery commands unless something fails. If repository config sets `[delivery] remote_provider`, use that provider unless set to `auto`.

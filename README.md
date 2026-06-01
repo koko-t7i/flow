@@ -92,6 +92,12 @@ remote_provider = "github"
 create_review = true
 wait_for_ci = false
 cleanup_remote_branch = "auto"
+
+[mr]
+remote = "origin"
+title_source = "latest_commit_subject"
+body_style = "commits_and_checks"
+draft = false
 ```
 
 ## Install
@@ -109,6 +115,8 @@ After install, invoke the slash command:
 
 ```text
 /localflow check
+/localflow mr
+/localflow clean
 /localflow <describe the change to deliver>
 ```
 
@@ -124,5 +132,12 @@ After install, invoke the skill:
 
 ```text
 $localflow check
+$localflow mr
+$localflow clean
 $localflow <describe the change to deliver>
 ```
+
+`localflow mr` creates or inspects the current branch review request: GitHub
+repositories get a PR, GitLab repositories get an MR. `localflow clean` only
+cleans an already-landed delivery unit; it refuses to delete branches or
+worktrees while the MR/PR is still unmerged.

@@ -1,6 +1,6 @@
 ---
 name: localflow
-description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, temporary git worktree cleanup, or when the user invokes the `localflow check` subcommand (`/localflow check` in Claude Code, `$localflow check` in Codex) to refresh local CLI/auth/permission capability. Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change or the explicit check subcommand.
+description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, temporary git worktree cleanup, or when the user invokes a localflow subcommand (`check`, `mr`, or `clean`). Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change or an explicit subcommand.
 ---
 
 # Localflow
@@ -35,6 +35,48 @@ This is a read-only environment check, not a delivery workflow. Do not clarify r
 
 3. Report the Markdown snapshot path, the JSON snapshot path, and the actionable failures only. Keep secrets redacted.
 
+### `localflow mr`
+
+Use when the user invokes `/localflow mr` in Claude Code or `$localflow mr` in Codex.
+
+This command creates or inspects the MR/PR for the current already-committed task branch. It does not implement changes, commit, merge, or clean up lifecycle resources.
+
+1. Run the deterministic MR script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
+
+   ```bash
+   # 1. Repo-local copy when cwd is inside the localflow repo.
+   uv run ./localflow/scripts/mr.py --cwd "$PWD" --host codex
+
+   # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
+   uv run "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/mr.py" --cwd "$PWD" --host claude
+
+   # 3. Codex skill install.
+   uv run "$HOME/.codex/skills/localflow/scripts/mr.py" --cwd "$PWD" --host codex
+   ```
+
+2. Report the Markdown snapshot path, JSON snapshot path, MR/PR URL, action, and stop reason when present. Do not hand-write fallback `git`, `gh`, or `glab` commands unless the script reports a missing script path.
+
+### `localflow clean`
+
+Use when the user invokes `/localflow clean` in Claude Code or `$localflow clean` in Codex after a task has landed.
+
+This command only cleans an already-landed delivery unit. It never merges. If the MR/PR is not merged, or the task branch is not already merged into the base branch for Local Landing, it must stop without deleting any remote branch, local branch, or worktree.
+
+1. Run the deterministic clean script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
+
+   ```bash
+   # 1. Repo-local copy when cwd is inside the localflow repo.
+   uv run ./localflow/scripts/clean.py --cwd "$PWD" --host codex
+
+   # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
+   uv run "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/clean.py" --cwd "$PWD" --host claude
+
+   # 3. Codex skill install.
+   uv run "$HOME/.codex/skills/localflow/scripts/clean.py" --cwd "$PWD" --host codex
+   ```
+
+2. Report the Markdown snapshot path, JSON snapshot path, cleanup action, and stop reason when present. Do not manually delete branches or worktrees after the script stops.
+
 ## Workflow
 
 1. **Clarify requirement.** Restate the task, acceptance criteria, scope, non-goals, and blockers. Read [references/clarify.md](references/clarify.md).
@@ -52,7 +94,7 @@ This is a read-only environment check, not a delivery workflow. Do not clarify r
 - `environment.md` owns local CLI availability, auth, permission, and remote fallback evidence.
 - `git.md` owns local branch/worktree lifecycle and cleanup mechanics.
 - `verify.md` owns task acceptance evidence and review gates.
-- `contrib.md` owns commit, push, remote branch, and MR/PR delivery decisions.
+- `contrib.md` owns commit, push, remote branch, MR/PR delivery decisions, and deterministic `mr`/`clean` subcommands.
 
 ## Repository Config
 
