@@ -115,6 +115,67 @@ remote_provider = "gitlab"
         self.assertEqual(repo_flow.review_view_command("github", "feat/example")[:3], ["gh", "pr", "view"])
         self.assertEqual(repo_flow.review_view_command("gitlab", "feat/example")[:3], ["glab", "mr", "view"])
 
+    def test_auto_base_branch_uses_nearest_long_lived_branch(self):
+        root = self.make_repo("")
+        responses = {
+            ("git", "rev-parse", "--verify", "--quiet", "origin/main"): [ok([])],
+            ("git", "rev-list", "--count", "origin/main..HEAD"): [ok([], "475")],
+            ("git", "rev-parse", "--verify", "--quiet", "origin/test"): [ok([])],
+            ("git", "rev-list", "--count", "origin/test..HEAD"): [ok([], "1")],
+            ("git", "rev-parse", "--verify", "--quiet", "origin/dev"): [fail([])],
+            ("git", "rev-parse", "--verify", "--quiet", "dev"): [fail([])],
+        }
+        runner = FakeRunner(responses)
+
+        result = repo_flow.resolve_base_branch(root, {}, runner)
+
+        self.assertEqual(result, {"name": "test", "ref": "origin/test"})
+
+    def test_provider_inference_uses_cli_auth_for_self_hosted_gitlab(self):
+        root = self.make_repo()
+        runner = FakeRunner(
+            {
+                ("glab", "auth", "status", "--hostname", "git.aurtech.cc"): [ok([])],
+                ("gh", "auth", "status", "--hostname", "git.aurtech.cc"): [fail([])],
+            }
+        )
+
+        result = repo_flow.resolve_provider(
+            {},
+            "https://git.aurtech.cc/w3/rpc-gateway.git",
+            root,
+            runner,
+        )
+
+        self.assertEqual(result["provider"], "gitlab")
+
+    def test_self_hosted_gitlab_mr_returns_status_without_duplicate_create(self):
+        root = self.make_repo()
+        review = {
+            "iid": 207,
+            "state": "opened",
+            "web_url": "https://git.aurtech.cc/w3/rpc-gateway/-/merge_requests/207",
+            "source_branch": "feat/example",
+            "target_branch": "main",
+            "sha": "abc123",
+            "detailed_merge_status": "checking",
+            "title": "refactor: update api",
+        }
+        responses = self.base_responses(root)
+        responses[("git", "remote", "get-url", "origin")] = [ok([], "https://git.aurtech.cc/w3/rpc-gateway.git")]
+        responses[("glab", "auth", "status", "--hostname", "git.aurtech.cc")] = [ok([])]
+        responses[("gh", "auth", "status", "--hostname", "git.aurtech.cc")] = [fail([])]
+        responses[("glab", "mr", "view", "feat/example", "--output", "json")] = [ok([], json.dumps(review))]
+        runner = FakeRunner(responses)
+
+        result = mr.run(root, "codex", runner)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["action"], "status")
+        self.assertEqual(result["provider"], "gitlab")
+        self.assertEqual(result["url"], review["web_url"])
+        self.assertFalse(any(call[:3] == ("glab", "mr", "create") for call in runner.calls))
+
     def test_simple_toml_preserves_escaped_quotes_in_command_arrays(self):
         config = repo_flow.parse_simple_toml(
             """
