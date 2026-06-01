@@ -92,7 +92,7 @@ Use `localflow clean` only after the work has landed:
 uv run ./localflow/scripts/clean.py --cwd "$PWD" --host codex
 ```
 
-The clean script never merges. It must refuse cleanup unless the current branch's MR/PR is already merged, or the task branch is already merged into the base branch for Local Landing. If the MR/PR is open, closed without merge, has a mismatched head SHA, the worktree is dirty, or lifecycle ownership is unclear, it stops without deleting the remote branch, local branch, or worktree.
+The clean script never merges. On a task branch, it must refuse cleanup unless the current branch's MR/PR is already merged, or the task branch is already merged into the base branch for Local Landing. On a long-lived branch, it scans local branches, owned worktrees, and remote branches, then cleans only landed candidates. If an MR/PR is open, closed without merge, has a mismatched head SHA, the worktree is dirty, or lifecycle ownership is unclear, that candidate is skipped without deleting its remote branch, local branch, or worktree.
 
 ### Lean Remote Review Path
 

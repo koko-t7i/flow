@@ -73,15 +73,23 @@ cleanup_remote_branch = "auto"
             ("git", "remote", "get-url", "origin"): [ok([], "git@github.com:koko-t7i/example.git")],
         }
 
-    def pr_view_key(self):
+    def pr_view_key(self, branch="feat/example"):
         return (
             "gh",
             "pr",
             "view",
-            "feat/example",
+            branch,
             "--json",
             "number,state,url,headRefName,baseRefName,headRefOid,mergeStateStatus,statusCheckRollup,isDraft,title",
         )
+
+    def main_responses(self, root: Path):
+        responses = self.base_responses(root)
+        responses[("git", "branch", "--show-current")] = [ok([], "main")]
+        responses[("git", "status", "--porcelain")] = [ok([], "")]
+        responses[("git", "rev-parse", "--show-toplevel")] = [ok([], str(root)), ok([], str(root))]
+        responses.pop(("git", "rev-parse", "HEAD"))
+        return responses
 
     def test_open_pr_never_cleans(self):
         root = self.make_repo()
@@ -132,6 +140,104 @@ cleanup_remote_branch = "auto"
         self.assertEqual(result["action"], "cleaned")
         self.assertIn(("git", "push", "origin", "--delete", "feat/example"), runner.calls)
         self.assertIn(("git", "branch", "-D", "feat/example"), runner.calls)
+
+    def test_main_scans_and_cleans_only_landed_candidates(self):
+        root = self.make_repo()
+        merged_tree = root.parent / "worktrees" / "docs-merged"
+        open_tree = root.parent / "worktrees" / "fix-open"
+        responses = self.main_responses(root)
+        responses[("git", "for-each-ref", "--format=%(refname:short)", "refs/heads")] = [
+            ok([], "main\ndocs/merged\nfix/open")
+        ]
+        responses[("git", "for-each-ref", "--format=%(refname:short)", "refs/remotes/origin")] = [
+            ok([], "origin/main\norigin/docs/merged\norigin/fix/open\norigin/fix/remote-only")
+        ]
+        responses[("git", "worktree", "list", "--porcelain")] = [
+            ok(
+                [],
+                f"""worktree {root}
+HEAD base123
+branch refs/heads/main
+
+worktree {merged_tree}
+HEAD merged123
+branch refs/heads/docs/merged
+
+worktree {open_tree}
+HEAD open123
+branch refs/heads/fix/open
+""",
+            )
+        ]
+        responses[("git", "rev-parse", "docs/merged")] = [ok([], "merged123")]
+        responses[("git", "rev-parse", "origin/docs/merged")] = [ok([], "merged123")]
+        responses[("git", "rev-parse", "fix/open")] = [ok([], "open123")]
+        responses[("git", "rev-parse", "origin/fix/open")] = [ok([], "open123")]
+        responses[("git", "rev-parse", "origin/fix/remote-only")] = [ok([], "remote123")]
+        responses[self.pr_view_key("docs/merged")] = [
+            ok([], json.dumps({"state": "MERGED", "url": "https://github.com/koko-t7i/example/pull/2", "headRefOid": "merged123"}))
+        ]
+        responses[self.pr_view_key("fix/open")] = [
+            ok([], json.dumps({"state": "OPEN", "url": "https://github.com/koko-t7i/example/pull/3", "headRefOid": "open123"}))
+        ]
+        responses[self.pr_view_key("fix/remote-only")] = [
+            ok([], json.dumps({"state": "MERGED", "url": "https://github.com/koko-t7i/example/pull/4", "headRefOid": "remote123"}))
+        ]
+        responses[("git", "status", "--porcelain")] = [ok([], ""), ok([], "")]
+        responses[("git", "push", "origin", "--delete", "docs/merged")] = [ok([])]
+        responses[("git", "worktree", "remove", str(merged_tree))] = [ok([])]
+        responses[("git", "branch", "-D", "docs/merged")] = [ok([])]
+        responses[("git", "push", "origin", "--delete", "fix/remote-only")] = [ok([])]
+        responses[("git", "worktree", "prune")] = [ok([])]
+        runner = FakeRunner(responses)
+
+        result = clean.run(root, "codex", runner)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["action"], "scanned_cleaned")
+        self.assertEqual({item["branch"] for item in result["cleaned"]}, {"docs/merged", "fix/remote-only"})
+        self.assertEqual(result["skipped"], [{"branch": "fix/open", "reason": "review_not_merged", "state": "open"}])
+        self.assertIn(("git", "push", "origin", "--delete", "docs/merged"), runner.calls)
+        self.assertIn(("git", "worktree", "remove", str(merged_tree)), runner.calls)
+        self.assertIn(("git", "branch", "-D", "docs/merged"), runner.calls)
+        self.assertIn(("git", "push", "origin", "--delete", "fix/remote-only"), runner.calls)
+        self.assertNotIn(("git", "push", "origin", "--delete", "fix/open"), runner.calls)
+        self.assertNotIn(("git", "worktree", "remove", str(open_tree)), runner.calls)
+
+    def test_main_scan_skips_dirty_landed_worktree(self):
+        root = self.make_repo()
+        merged_tree = root.parent / "worktrees" / "docs-dirty"
+        responses = self.main_responses(root)
+        responses[("git", "for-each-ref", "--format=%(refname:short)", "refs/heads")] = [ok([], "main\ndocs/dirty")]
+        responses[("git", "for-each-ref", "--format=%(refname:short)", "refs/remotes/origin")] = [ok([], "origin/main")]
+        responses[("git", "worktree", "list", "--porcelain")] = [
+            ok(
+                [],
+                f"""worktree {root}
+HEAD base123
+branch refs/heads/main
+
+worktree {merged_tree}
+HEAD dirty123
+branch refs/heads/docs/dirty
+""",
+            )
+        ]
+        responses[("git", "rev-parse", "docs/dirty")] = [ok([], "dirty123")]
+        responses[self.pr_view_key("docs/dirty")] = [
+            ok([], json.dumps({"state": "MERGED", "url": "https://github.com/koko-t7i/example/pull/5", "headRefOid": "dirty123"}))
+        ]
+        responses[("git", "status", "--porcelain")] = [ok([], ""), ok([], " M SKILL.md")]
+        runner = FakeRunner(responses)
+
+        result = clean.run(root, "codex", runner)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["action"], "noop")
+        self.assertEqual(result["cleaned"], [])
+        self.assertEqual(result["skipped"], [{"branch": "docs/dirty", "reason": "dirty_worktree", "state": "merged"}])
+        self.assertNotIn(("git", "push", "origin", "--delete", "docs/dirty"), runner.calls)
+        self.assertNotIn(("git", "worktree", "remove", str(merged_tree)), runner.calls)
 
 
 if __name__ == "__main__":

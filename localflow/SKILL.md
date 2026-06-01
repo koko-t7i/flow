@@ -60,7 +60,7 @@ This command creates or inspects the MR/PR for the current already-committed tas
 
 Use when the user invokes `/localflow clean` in Claude Code or `$localflow clean` in Codex after a task has landed.
 
-This command only cleans an already-landed delivery unit. It never merges. If the MR/PR is not merged, or the task branch is not already merged into the base branch for Local Landing, it must stop without deleting any remote branch, local branch, or worktree.
+This command only cleans already-landed delivery units. It never merges. On a task branch, it cleans that branch only after its MR/PR is merged or the branch is already merged into the base branch for Local Landing. On a long-lived branch, it scans local branches, owned worktrees, and remote branches, then cleans only candidates that are already landed.
 
 1. Run the deterministic clean script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
 
@@ -75,7 +75,7 @@ This command only cleans an already-landed delivery unit. It never merges. If th
    uv run "$HOME/.codex/skills/localflow/scripts/clean.py" --cwd "$PWD" --host codex
    ```
 
-2. Report the Markdown snapshot path, JSON snapshot path, cleanup action, and stop reason when present. Do not manually delete branches or worktrees after the script stops.
+2. Report the Markdown snapshot path, JSON snapshot path, cleanup action, cleaned branches, skipped branches, and stop reason when present. Do not manually delete branches or worktrees after the script stops.
 
 ## Workflow
 

@@ -139,5 +139,6 @@ $localflow <describe the change to deliver>
 
 `localflow mr` creates or inspects the current branch review request: GitHub
 repositories get a PR, GitLab repositories get an MR. `localflow clean` only
-cleans an already-landed delivery unit; it refuses to delete branches or
-worktrees while the MR/PR is still unmerged.
+cleans already-landed delivery units. From a task branch it cleans that branch;
+from a long-lived branch it scans safe leftovers and skips anything still
+unmerged, dirty, or not owned by localflow.
