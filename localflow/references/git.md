@@ -43,6 +43,8 @@ If repository config sets `worktree_mode = "isolated"`, use an isolated worktree
 
 Use a lean preflight before creating a worktree: gather current branch, dirty state, worktree status, and submodule/nested-worktree risk in the fewest commands practical. Do not create nested worktrees.
 
+After creating or selecting an isolated worktree, run `check_env_files.py` from the source checkout, task worktree, or installed localflow copy to inspect repository env-file availability before verification. Sync local ignored environment files that repository checks need from the source checkout into the task worktree. Preserve relative paths for files such as `.env`, `.env.*`, `*/.env`, and `*/.env.*`; do not print secret values; confirm the copied files are ignored with `git check-ignore` or `git status --ignored`; never stage or commit them. If the source checkout lacks the required env files, use the script's same-repository sibling worktree candidates before declaring databases, Redis, or other local services unavailable, and report only the source path used.
+
 In existing-changes mode, do not keep editing the original checkout by default. Stop when the original checkout is dirty, identify the files, and move or recreate the work in a task worktree only after the user clearly confirms those changes belong to the current task. If those changes are on a long-lived branch, do not stage or continue there.
 
 Track lifecycle provenance:
