@@ -35,6 +35,26 @@ This is a read-only environment check, not a delivery workflow. Do not clarify r
 
 3. Report the Markdown snapshot path, the JSON snapshot path, and the actionable failures only. Keep secrets redacted.
 
+### Env File Inspection
+
+Use the deterministic env-file inspection script before deciding that a fresh
+worktree lacks repository-local test configuration. It reports paths, git
+tracking/ignore status, redacted key names, and same-repository sibling
+worktree candidates; it does not validate env value semantics or print values.
+
+Probe the candidates below in order and use the first one that resolves:
+
+```bash
+# 1. Repo-local copy when cwd is inside the localflow repo.
+uv run python ./localflow/scripts/check_env_files.py --cwd "$PWD"
+
+# 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
+uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/check_env_files.py" --cwd "$PWD"
+
+# 3. Codex skill install.
+uv run python "$HOME/.codex/skills/localflow/scripts/check_env_files.py" --cwd "$PWD"
+```
+
 ### `localflow mr`
 
 Use when the user invokes `/localflow mr` in Claude Code or `$localflow mr` in Codex.

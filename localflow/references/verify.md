@@ -41,6 +41,8 @@ For non-code tasks, use the relevant acceptance evidence instead:
 
 Prefer the smallest convincing checks for the changed surface unless the user asks for broader validation.
 
+Before reporting that required local services or test configuration are unavailable from an isolated worktree, run `check_env_files.py` and confirm ignored environment files were synced from the source checkout or a same-repository sibling worktree candidate. Missing `.env` / `.env.*` files in a new worktree are a setup issue to fix first, not evidence that PostgreSQL, Redis, or another required service is unavailable. Keep env values secret and untracked, and do not infer service availability from env values.
+
 ## Review Gate
 
 Before committing or landing, review the final diff as a code reviewer. Check:
