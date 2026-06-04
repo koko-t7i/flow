@@ -86,6 +86,16 @@ uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex
 
 The script validates that the current branch is a clean task branch with commits ahead of the base branch, runs configured `pre_commit` checks, pushes the branch, and creates or reports the existing review request. It never commits, merges, or cleans up.
 
+For a shared checkout that must stay live (one combined frontend preview, multiple agents on one directory and branch), use the snapshot mode, which bypasses the dirty-worktree and long-lived-branch guards on purpose:
+
+```bash
+uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex \
+  --snapshot --branch <type/slug> --paths <files...> \
+  --type <type> --summary "<imperative summary>" [--bump patch|minor|major]
+```
+
+Snapshot mode captures the current worktree state of the named `--paths` into a side branch through a throwaway index, then pushes and opens or updates the review. It never touches the working tree, the real index, or `HEAD`, so the preview is not interrupted and no branch is switched. The subject is validated as an English Conventional Commit (allowed types only, no AI attribution) before any git write; `--paths` is required and scopes the change to the task's files; `--bump` injects a `[version_policy]` bump into the snapshot only, leaving the on-disk version file unchanged, and the version decision is reported. Concurrent edits to the *same* file by two agents cannot be separated — that is the inherent limit of one shared working directory.
+
 Use `localflow clean` only after the work has landed:
 
 ```bash

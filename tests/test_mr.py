@@ -28,7 +28,7 @@ class FakeRunner:
         self.responses = {key: list(value) for key, value in responses.items()}
         self.calls = []
 
-    def __call__(self, args, *, cwd, timeout=30, shell=False):
+    def __call__(self, args, *, cwd, timeout=30, shell=False, env=None):
         key = ("shell", args) if shell else tuple(args)
         self.calls.append(key)
         values = self.responses.get(key)
@@ -263,6 +263,208 @@ pre_commit = [
         self.assertEqual(result["action"], "created")
         self.assertIn(("git", "push", "-u", "origin", "feat/example"), runner.calls)
         self.assertTrue(any(call[:3] == ("gh", "pr", "create") for call in runner.calls))
+
+
+GH_VIEW_FIELDS = "number,state,url,headRefName,baseRefName,headRefOid,mergeStateStatus,statusCheckRollup,isDraft,title"
+
+
+class SnapshotModeTest(unittest.TestCase):
+    def make_repo(self, config_text='base_branch = "main"\n'):
+        temp = tempfile.TemporaryDirectory()
+        root = Path(temp.name)
+        (root / ".codex").mkdir()
+        (root / ".codex" / "localflow.toml").write_text(config_text, encoding="utf-8")
+        self.addCleanup(temp.cleanup)
+        return root
+
+    def snapshot_responses(self, root, *, branch="feat/live-preview", message="feat: add live preview", review=None):
+        gh_view = ("gh", "pr", "view", branch, "--json", GH_VIEW_FIELDS)
+        view_value = ok([], json.dumps(review)) if review else fail([])
+        return {
+            ("git", "rev-parse", "--show-toplevel"): [ok([], str(root)), ok([], str(root))],
+            ("git", "rev-parse", "--verify", "--quiet", "main"): [ok([])],
+            ("git", "read-tree", "main"): [ok([])],
+            ("git", "add", "--", "src/Preview.tsx"): [ok([])],
+            ("git", "write-tree"): [ok([], "tree123")],
+            ("git", "commit-tree", "tree123", "-p", "main", "-m", message): [ok([], "commit456")],
+            ("git", "update-ref", f"refs/heads/{branch}", "commit456"): [ok([])],
+            ("git", "remote", "get-url", "origin"): [ok([], "git@github.com:koko-t7i/example.git")],
+            ("git", "push", "-u", "origin", branch): [ok([])],
+            gh_view: [view_value, ok([], json.dumps(review or {"state": "OPEN", "url": "https://github.com/x/pull/1"}))],
+        }
+
+    def dynamic(self, runner):
+        def _runner(args, *, cwd, timeout=30, shell=False, env=None):
+            if isinstance(args, list) and args[:3] == ["gh", "pr", "create"]:
+                runner.calls.append(tuple(args))
+                return ok(args)
+            return runner(args, cwd=cwd, timeout=timeout, shell=shell, env=env)
+
+        return _runner
+
+    def test_snapshot_creates_branch_without_touching_worktree(self):
+        root = self.make_repo()
+        runner = FakeRunner(self.snapshot_responses(root))
+
+        result = mr.run_snapshot(
+            root,
+            "codex",
+            branch="feat/live-preview",
+            paths=["src/Preview.tsx"],
+            message="feat: add live preview",
+            runner=self.dynamic(runner),
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["action"], "snapshot_created")
+        self.assertEqual(result["head_sha"], "commit456")
+        self.assertEqual(result["included_files"], ["src/Preview.tsx"])
+        # The snapshot pipeline ran in order.
+        for call in (
+            ("git", "read-tree", "main"),
+            ("git", "add", "--", "src/Preview.tsx"),
+            ("git", "write-tree"),
+            ("git", "commit-tree", "tree123", "-p", "main", "-m", "feat: add live preview"),
+            ("git", "update-ref", "refs/heads/feat/live-preview", "commit456"),
+            ("git", "push", "-u", "origin", "feat/live-preview"),
+        ):
+            self.assertIn(call, runner.calls)
+        self.assertTrue(any(c[:3] == ("gh", "pr", "create") for c in runner.calls))
+        # It never inspects/mutates the working tree, HEAD, or real index.
+        self.assertNotIn(("git", "status", "--porcelain"), runner.calls)
+        self.assertFalse(any(c[:2] == ("git", "checkout") for c in runner.calls))
+        self.assertFalse(any(c[:2] == ("git", "stash") for c in runner.calls))
+        self.assertFalse(any(c[:2] == ("git", "commit") for c in runner.calls))
+
+    def test_snapshot_rejects_invalid_message_before_any_git_write(self):
+        root = self.make_repo()
+        runner = FakeRunner(self.snapshot_responses(root))
+
+        result = mr.run_snapshot(
+            root,
+            "codex",
+            branch="feat/live-preview",
+            paths=["src/Preview.tsx"],
+            message="feat: add live preview.",  # trailing period
+            runner=runner,
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["stop_reason"], "invalid_commit_message")
+        self.assertNotIn(("git", "read-tree", "main"), runner.calls)
+
+    def test_snapshot_rejects_non_ascii_message(self):
+        root = self.make_repo()
+        runner = FakeRunner(self.snapshot_responses(root))
+
+        result = mr.run_snapshot(
+            root,
+            "codex",
+            branch="feat/live-preview",
+            paths=["src/Preview.tsx"],
+            message="feat: 添加实时预览",
+            runner=runner,
+        )
+
+        self.assertEqual(result["stop_reason"], "invalid_commit_message")
+        self.assertNotIn(("git", "read-tree", "main"), runner.calls)
+
+    def test_snapshot_rejects_ignored_path(self):
+        root = self.make_repo()
+        responses = self.snapshot_responses(root)
+        responses[("git", "check-ignore", "-q", ".env")] = [ok([])]
+        runner = FakeRunner(responses)
+
+        result = mr.run_snapshot(
+            root,
+            "codex",
+            branch="feat/live-preview",
+            paths=[".env"],
+            message="feat: add live preview",
+            runner=runner,
+        )
+
+        self.assertEqual(result["stop_reason"], "ignored_path_staged")
+        self.assertNotIn(("git", "read-tree", "main"), runner.calls)
+
+    def test_snapshot_uses_existing_branch_tip_as_parent_and_updates(self):
+        root = self.make_repo()
+        review = {"state": "OPEN", "url": "https://github.com/koko-t7i/example/pull/9", "headRefOid": "old"}
+        responses = self.snapshot_responses(root, review=review)
+        # Branch already exists locally -> parent is its tip, commit-tree changes accordingly.
+        responses[("git", "rev-parse", "--verify", "--quiet", "refs/heads/feat/live-preview")] = [ok([])]
+        responses[("git", "commit-tree", "tree123", "-p", "refs/heads/feat/live-preview", "-m", "feat: add live preview")] = [ok([], "commit456")]
+        runner = FakeRunner(responses)
+
+        result = mr.run_snapshot(
+            root,
+            "codex",
+            branch="feat/live-preview",
+            paths=["src/Preview.tsx"],
+            message="feat: add live preview",
+            runner=self.dynamic(runner),
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["action"], "snapshot_updated")
+        self.assertIn(
+            ("git", "commit-tree", "tree123", "-p", "refs/heads/feat/live-preview", "-m", "feat: add live preview"),
+            runner.calls,
+        )
+        # Existing review -> do not create a duplicate.
+        self.assertFalse(any(c[:3] == ("gh", "pr", "create") for c in runner.calls))
+
+    def test_snapshot_with_version_bump_injects_blob(self):
+        root = self.make_repo(
+            'base_branch = "main"\n\n[version_policy]\nenabled = true\nfiles = ["plugin.json"]\n'
+        )
+        (root / "plugin.json").write_text('{"name": "x", "version": "0.9.0"}\n', encoding="utf-8")
+        responses = self.snapshot_responses(root)
+        responses[("git", "update-index", "--add", "--cacheinfo", "100644,blobsha,plugin.json")] = [ok([])]
+        runner = FakeRunner(responses)
+
+        def dynamic_runner(args, *, cwd, timeout=30, shell=False, env=None):
+            if isinstance(args, list) and args[:2] == ["git", "hash-object"]:
+                runner.calls.append(("git", "hash-object"))
+                return ok([], "blobsha")
+            if isinstance(args, list) and args[:3] == ["gh", "pr", "create"]:
+                runner.calls.append(tuple(args))
+                return ok(args)
+            return runner(args, cwd=cwd, timeout=timeout, shell=shell, env=env)
+
+        result = mr.run_snapshot(
+            root,
+            "codex",
+            branch="feat/live-preview",
+            paths=["src/Preview.tsx"],
+            message="feat: add live preview",
+            bump="minor",
+            runner=dynamic_runner,
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["version"]["decision"], "bumped")
+        self.assertEqual(result["version"]["to"], "0.10.0")
+        self.assertIn(
+            ("git", "update-index", "--add", "--cacheinfo", "100644,blobsha,plugin.json"),
+            runner.calls,
+        )
+
+    def test_snapshot_version_bump_requires_enabled_policy(self):
+        root = self.make_repo()  # no [version_policy]
+        runner = FakeRunner(self.snapshot_responses(root))
+
+        result = mr.run_snapshot(
+            root,
+            "codex",
+            branch="feat/live-preview",
+            paths=["src/Preview.tsx"],
+            message="feat: add live preview",
+            bump="minor",
+            runner=runner,
+        )
+
+        self.assertEqual(result["stop_reason"], "version_policy_disabled")
 
 
 if __name__ == "__main__":

@@ -76,6 +76,22 @@ This command creates or inspects the MR/PR for the current already-committed tas
 
 2. Report the Markdown snapshot path, JSON snapshot path, MR/PR URL, action, and stop reason when present. Do not hand-write fallback `git`, `gh`, or `glab` commands unless the script reports a missing script path.
 
+#### Snapshot path (shared checkout / live preview)
+
+Use `--snapshot` when work is uncommitted on a shared checkout that must not be disturbed — for example a frontend dev server giving a single combined live preview while multiple agents edit the same directory and branch. The default `mr` flow stops on a dirty worktree or a long-lived branch; snapshot mode bypasses both by capturing the named files into a side branch through a throwaway index, **without touching the working tree, the real index, or `HEAD`**. The dev server keeps running and no branch is switched.
+
+```bash
+uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex \
+  --snapshot --branch feat/live-preview \
+  --paths src/Preview.tsx src/hooks/usePreview.ts \
+  --type feat --summary "add live preview" [--bump minor]
+```
+
+- `--paths` is required and scopes the snapshot to the task's files. In a shared directory this is what keeps another agent's concurrent edits out of the MR. Two agents editing the *same* file cannot be separated — that is the inherent limit of sharing one working directory.
+- Supply the message as `--message "feat(scope): summary"` or as `--type`/`--scope`/`--summary` (+ `--body`, `--breaking`). The subject is validated as an English Conventional Commit before any git write.
+- `--bump patch|minor|major` injects a version bump into the snapshot only (per `[version_policy]`); the on-disk version file is left untouched.
+- Re-running the same `--branch` appends a commit (parent = the existing branch tip) and updates the open MR/PR; no force push.
+
 ### `localflow clean`
 
 Use when the user invokes `/localflow clean` in Claude Code or `$localflow clean` in Codex after a task has landed.
