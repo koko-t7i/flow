@@ -283,11 +283,14 @@ class SnapshotModeTest(unittest.TestCase):
         return {
             ("git", "rev-parse", "--show-toplevel"): [ok([], str(root)), ok([], str(root))],
             ("git", "rev-parse", "--verify", "--quiet", "main"): [ok([])],
-            ("git", "read-tree", "main"): [ok([])],
+            ("git", "fetch", "origin", "main"): [ok([])],
+            ("git", "rev-parse", "--verify", "--quiet", "origin/main"): [ok([])],
+            ("git", "read-tree", "origin/main"): [ok([])],
             ("git", "add", "--", "src/Preview.tsx"): [ok([])],
             ("git", "write-tree"): [ok([], "tree123")],
-            ("git", "commit-tree", "tree123", "-p", "main", "-m", message): [ok([], "commit456")],
+            ("git", "commit-tree", "tree123", "-p", "origin/main", "-m", message): [ok([], "commit456")],
             ("git", "update-ref", f"refs/heads/{branch}", "commit456"): [ok([])],
+            ("git", "diff", "--name-only", "origin/main", "commit456"): [ok([], "src/Preview.tsx")],
             ("git", "remote", "get-url", "origin"): [ok([], "git@github.com:koko-t7i/example.git")],
             ("git", "push", "-u", "origin", branch): [ok([])],
             gh_view: [view_value, ok([], json.dumps(review or {"state": "OPEN", "url": "https://github.com/x/pull/1"}))],
@@ -319,13 +322,15 @@ class SnapshotModeTest(unittest.TestCase):
         self.assertEqual(result["action"], "snapshot_created")
         self.assertEqual(result["head_sha"], "commit456")
         self.assertEqual(result["included_files"], ["src/Preview.tsx"])
-        # The snapshot pipeline ran in order.
+        # The snapshot pipeline ran in order, anchored on the freshly-fetched remote tip.
         for call in (
-            ("git", "read-tree", "main"),
+            ("git", "fetch", "origin", "main"),
+            ("git", "read-tree", "origin/main"),
             ("git", "add", "--", "src/Preview.tsx"),
             ("git", "write-tree"),
-            ("git", "commit-tree", "tree123", "-p", "main", "-m", "feat: add live preview"),
+            ("git", "commit-tree", "tree123", "-p", "origin/main", "-m", "feat: add live preview"),
             ("git", "update-ref", "refs/heads/feat/live-preview", "commit456"),
+            ("git", "diff", "--name-only", "origin/main", "commit456"),
             ("git", "push", "-u", "origin", "feat/live-preview"),
         ):
             self.assertIn(call, runner.calls)
@@ -351,7 +356,7 @@ class SnapshotModeTest(unittest.TestCase):
 
         self.assertFalse(result["ok"])
         self.assertEqual(result["stop_reason"], "invalid_commit_message")
-        self.assertNotIn(("git", "read-tree", "main"), runner.calls)
+        self.assertNotIn(("git", "read-tree", "origin/main"), runner.calls)
 
     def test_snapshot_rejects_non_ascii_message(self):
         root = self.make_repo()
@@ -367,7 +372,7 @@ class SnapshotModeTest(unittest.TestCase):
         )
 
         self.assertEqual(result["stop_reason"], "invalid_commit_message")
-        self.assertNotIn(("git", "read-tree", "main"), runner.calls)
+        self.assertNotIn(("git", "read-tree", "origin/main"), runner.calls)
 
     def test_snapshot_rejects_ignored_path(self):
         root = self.make_repo()
@@ -385,7 +390,7 @@ class SnapshotModeTest(unittest.TestCase):
         )
 
         self.assertEqual(result["stop_reason"], "ignored_path_staged")
-        self.assertNotIn(("git", "read-tree", "main"), runner.calls)
+        self.assertNotIn(("git", "read-tree", "origin/main"), runner.calls)
 
     def test_snapshot_uses_existing_branch_tip_as_parent_and_updates(self):
         root = self.make_repo()
@@ -465,6 +470,55 @@ class SnapshotModeTest(unittest.TestCase):
         )
 
         self.assertEqual(result["stop_reason"], "version_policy_disabled")
+
+    def test_snapshot_stops_when_base_fetch_fails(self):
+        # An auto-resolved base must refresh from the remote; a failed fetch must stop
+        # rather than silently snapshot against a possibly-stale local tracking ref.
+        root = self.make_repo()
+        responses = self.snapshot_responses(root)
+        responses[("git", "fetch", "origin", "main")] = [fail([], "network down")]
+        runner = FakeRunner(responses)
+
+        result = mr.run_snapshot(
+            root,
+            "codex",
+            branch="feat/live-preview",
+            paths=["src/Preview.tsx"],
+            message="feat: add live preview",
+            runner=runner,
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["stop_reason"], "base_fetch_failed")
+        # Never anchored, committed, or pushed against a stale base.
+        self.assertNotIn(("git", "read-tree", "origin/main"), runner.calls)
+        self.assertFalse(any(c[:2] == ("git", "push") for c in runner.calls))
+
+    def test_snapshot_rejects_base_drift_before_push(self):
+        # If the snapshot touches anything beyond --paths relative to the live base,
+        # the base is stale/behind: refuse to push the contaminated review.
+        root = self.make_repo()
+        responses = self.snapshot_responses(root)
+        responses[("git", "diff", "--name-only", "origin/main", "commit456")] = [
+            ok([], "src/Preview.tsx\nsrc/Other.tsx")
+        ]
+        runner = FakeRunner(responses)
+
+        result = mr.run_snapshot(
+            root,
+            "codex",
+            branch="feat/live-preview",
+            paths=["src/Preview.tsx"],
+            message="feat: add live preview",
+            runner=self.dynamic(runner),
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["stop_reason"], "snapshot_base_drift")
+        self.assertIn("src/Other.tsx", result["message"])
+        # Guard fires before any push / review create.
+        self.assertFalse(any(c[:2] == ("git", "push") for c in runner.calls))
+        self.assertFalse(any(c[:3] == ("gh", "pr", "create") for c in runner.calls))
 
 
 if __name__ == "__main__":

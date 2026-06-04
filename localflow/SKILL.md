@@ -91,6 +91,8 @@ uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex \
 - Supply the message as `--message "feat(scope): summary"` or as `--type`/`--scope`/`--summary` (+ `--body`, `--breaking`). The subject is validated as an English Conventional Commit before any git write.
 - `--bump patch|minor|major` injects a version bump into the snapshot only (per `[version_policy]`); the on-disk version file is left untouched.
 - Re-running the same `--branch` appends a commit (parent = the existing branch tip) and updates the open MR/PR; no force push.
+- The snapshot is anchored on the **live** target: snapshot mode first `git fetch`es the base branch and reads/parents the snapshot on the freshly-fetched `origin/<base>`, so a shared checkout whose local tracking ref lags the real remote does not pull already-merged files into the review. A failed fetch stops with `base_fetch_failed`.
+- If the resulting snapshot would change anything **outside `--paths`** relative to the live base, the script stops with `snapshot_base_drift` and does not push — the signature of a stale/behind base. Sync the base branch (or re-`git fetch`) and retry.
 
 ### `localflow clean`
 
