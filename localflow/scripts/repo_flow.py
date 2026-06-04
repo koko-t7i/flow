@@ -391,6 +391,11 @@ def run_checks(cwd: Path, config: dict[str, object], runner=run_command) -> tupl
     return True, results
 
 
+def fetch_branch(cwd: Path, remote: str, branch: str, runner=run_command) -> CommandResult:
+    """Refresh the remote-tracking ref for `branch` so callers can anchor on the live tip."""
+    return runner(["git", "fetch", remote, branch], cwd=cwd, timeout=120)
+
+
 def push_branch(cwd: Path, remote: str, branch: str, url: str | None, runner=run_command) -> CommandResult:
     result = runner(["git", "push", "-u", remote, branch], cwd=cwd, timeout=120)
     if result.ok:
@@ -646,6 +651,33 @@ def snapshot_branch(
         return {"ok": True, "sha": commit}
     finally:
         shutil.rmtree(index_dir, ignore_errors=True)
+
+
+def snapshot_drift(
+    cwd: Path,
+    base_ref: str,
+    sha: str,
+    paths: list[str],
+    runner=run_command,
+) -> dict[str, object] | None:
+    """Guard: a snapshot commit must change ONLY the scoped `paths` against its base.
+
+    When the base is stale/behind the live remote target, the snapshot's diff against
+    that base leaks unrelated files (already-merged work shows up as reverts). Returns a
+    stop() dict in that case so the caller refuses to push; returns None when clean.
+    """
+    result = runner(["git", "diff", "--name-only", base_ref, sha], cwd=cwd)
+    if not result.ok:
+        return stop("snapshot_diff_failed", f"git diff failed: {result.stderr}")
+    changed = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    extra = [path for path in changed if path not in set(paths)]
+    if extra:
+        return stop(
+            "snapshot_base_drift",
+            "Base is stale or the branch is behind: the snapshot would touch files outside "
+            f"--paths: {', '.join(sorted(extra))}. Fetch/sync the base branch and retry.",
+        )
+    return None
 
 
 def write_outputs(name: str, data: dict[str, object]) -> tuple[Path, Path]:

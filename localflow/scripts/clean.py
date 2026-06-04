@@ -368,7 +368,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
             return flow.stop("review_not_merged", "MR/PR is not merged; localflow clean will not clean it.")
         if head and review.get("headRefOid") and str(review["headRefOid"]) != head:
             return flow.stop("head_sha_mismatch", "Local HEAD does not match the merged MR/PR head SHA.")
-        fetch = runner(["git", "fetch", remote, base_name], cwd=root, timeout=120)
+        fetch = flow.fetch_branch(root, remote, base_name, runner)
         if not fetch.ok:
             return flow.stop("base_fetch_failed", "Could not fetch the base branch after MR/PR merge.", stderr=fetch.stderr)
         landed_by = "remote_review"

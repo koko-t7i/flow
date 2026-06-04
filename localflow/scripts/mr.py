@@ -198,15 +198,36 @@ def run_snapshot(
         if flow.is_ignored(root, path, runner):
             return flow.stop("ignored_path_staged", f"Refusing to snapshot a git-ignored path: {path}")
 
+    # Resolve the remote + base name, then refresh the base from the remote so the
+    # snapshot is anchored on the *live* target tip — not a stale local tracking ref.
+    # On a shared checkout whose local origin/<base> lags the real remote, anchoring on
+    # the stale ref makes the server diff the branch against the live target and pull in
+    # already-merged files (as reverts). Fetch first; snapshot_drift below is the backstop.
+    mr_config = flow.section(config, "mr")
+    remote = str(mr_config.get("remote") or "origin")
+
     if base:
-        base_ref = flow.resolved_branch_ref(root, base, runner) or base
         base_name = base
     else:
         base_result = flow.resolve_base_branch(root, config, runner)
         if not base_result.get("name"):
             return base_result
         base_name = str(base_result["name"])
-        base_ref = str(base_result["ref"])
+
+    fetch = flow.fetch_branch(root, remote, base_name, runner)
+    remote_ref = f"{remote}/{base_name}"
+    if fetch.ok and flow.ref_exists(root, remote_ref, runner):
+        base_ref = remote_ref
+    elif base:
+        # An explicit --base may be a local-only / stacked branch with no remote ref;
+        # fall back to it and let snapshot_drift catch a stale anchor.
+        base_ref = flow.resolved_branch_ref(root, base_name, runner) or base_name
+    else:
+        return flow.stop(
+            "base_fetch_failed",
+            f"Could not refresh base branch '{base_name}' from '{remote}'.",
+            stderr=fetch.stderr,
+        )
 
     parent_ref = f"refs/heads/{branch}" if flow.branch_exists(root, branch, runner) else base_ref
 
@@ -227,8 +248,13 @@ def run_snapshot(
         return snapshot
     sha = str(snapshot["sha"])
 
-    mr_config = flow.section(config, "mr")
-    remote = str(mr_config.get("remote") or "origin")
+    # Refuse to push a snapshot that touches anything beyond --paths relative to the
+    # live base — the signature of a stale/behind base contaminating the review.
+    drift = flow.snapshot_drift(root, base_ref, sha, list(paths), runner)
+    if drift:
+        json_path, md_path = flow.write_outputs("mr", drift)
+        return {**drift, "json_path": str(json_path), "markdown_path": str(md_path)}
+
     url = flow.remote_url(root, remote, runner)
     provider_result = flow.resolve_provider(config, url, root, runner)
     if not provider_result.get("provider"):
