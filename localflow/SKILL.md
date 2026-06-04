@@ -1,6 +1,6 @@
 ---
 name: localflow
-description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, temporary git worktree cleanup, or when the user invokes a localflow subcommand (`check`, `mr`, or `clean`). Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change or an explicit subcommand.
+description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, temporary git worktree cleanup, or when the user invokes a localflow subcommand (`check`, `mr`, `commit`, or `clean`). Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change or an explicit subcommand.
 ---
 
 # Localflow
@@ -94,6 +94,33 @@ uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex \
 - The snapshot is anchored on the **live** target: snapshot mode first `git fetch`es the base branch and reads/parents the snapshot on the freshly-fetched `origin/<base>`, so a shared checkout whose local tracking ref lags the real remote does not pull already-merged files into the review. A failed fetch stops with `base_fetch_failed`.
 - If the resulting snapshot would change anything **outside `--paths`** relative to the live base, the script stops with `snapshot_base_drift` and does not push — the signature of a stale/behind base. Sync the base branch (or re-`git fetch`) and retry.
 
+### `localflow commit`
+
+Use when the user invokes `/localflow commit` in Claude Code or `$localflow commit` in Codex, or in the default isolated-worktree flow when a finished change needs to be committed (and optionally delivered) in one step.
+
+This command stages ONLY the named `--paths`, writes an English Conventional Commit on the current task branch, and — with `--mr` — opens the review via the normal `mr` flow. It refuses to run on a detached HEAD or a long-lived branch, never uses `git add .`, and validates the commit subject before any git write.
+
+1. Run the deterministic commit script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
+
+   ```bash
+   # 1. Repo-local copy when cwd is inside the localflow repo.
+   uv run python ./localflow/scripts/commit.py --cwd "$PWD" --host codex \
+     --paths src/Preview.tsx --type feat --scope preview --summary "add live preview" [--mr]
+
+   # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
+   uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/commit.py" --cwd "$PWD" --host claude --paths <files...> --message "type(scope): summary" [--mr]
+
+   # 3. Codex skill install.
+   uv run python "$HOME/.codex/skills/localflow/scripts/commit.py" --cwd "$PWD" --host codex --paths <files...> --type <t> --summary "<s>" [--mr]
+   ```
+
+2. `--paths` is required and is the only thing staged. Supply the message as `--message "type(scope): summary"` or as `--type`/`--scope`/`--summary` (+ `--body`, `--breaking`). With `--mr`, the commit and the review open in one step; if the review step fails the commit is kept (rerun `mr`). Report the JSON/Markdown snapshot path, branch, head SHA, and — when `--mr` — the MR/PR URL, action, and stop reason.
+
+#### Which path: worktree commit vs shared snapshot
+
+- **Default (isolated worktree / dedicated task branch):** finish the change, then `localflow commit [--mr]`. This is the normal delivery path.
+- **Shared checkout where multiple agents work the same branch** (heavy feature development, a shared frontend dev server): do NOT use `commit`; deliver with `localflow mr --snapshot --paths …`, which captures the files into a side branch without touching the working tree, index, or `HEAD`.
+
 ### `localflow clean`
 
 Use when the user invokes `/localflow clean` in Claude Code or `$localflow clean` in Codex after a task has landed.
@@ -122,7 +149,7 @@ This command only cleans already-landed delivery units. It never merges. On a ta
 3. **Read repository config.** If present, read the current-host config first: Codex uses `.codex/localflow.toml`; Claude Code uses `.claude/localflow.toml`. If the current-host file is missing, fall back to the other host's file. User instructions override config; config overrides defaults. If both host files exist, do not merge them.
 4. **Resolve repository workflow.** Determine the long-lived base branch, delivery mode, task branch, and worktree lifecycle. Default to an isolated task worktree and do not edit the original checkout. Read [references/git.md](references/git.md).
 5. **Implement and verify.** Use task-appropriate checks, fresh evidence, and review gates. Use TDD only when it fits code behavior work. Read [references/verify.md](references/verify.md).
-6. **Commit.** Stage only current-task files and write a concise English Conventional Commit message. Read [references/contrib.md](references/contrib.md).
+6. **Commit.** Stage only current-task files and write a concise English Conventional Commit message. In the default isolated worktree, the deterministic `localflow commit` subcommand does this (add `--mr` to commit and open the review in one step); on a shared checkout where agents share a branch, skip the commit step and deliver with `localflow mr --snapshot --paths …` instead. Read [references/contrib.md](references/contrib.md).
 7. **Deliver.** Use the repository delivery mode: Local Landing, Remote Review, or Push Only. Read [references/contrib.md](references/contrib.md).
 8. **Finish lifecycle.** Clean up only the branch, remote branch, and worktree owned by the current delivery unit, then return to the selected long-lived branch. Read [references/git.md](references/git.md) and [references/contrib.md](references/contrib.md).
 
@@ -132,7 +159,7 @@ This command only cleans already-landed delivery units. It never merges. On a ta
 - `environment.md` owns local CLI availability, auth, permission, and remote fallback evidence.
 - `git.md` owns local branch/worktree lifecycle and cleanup mechanics.
 - `verify.md` owns task acceptance evidence and review gates.
-- `contrib.md` owns commit, push, remote branch, MR/PR delivery decisions, and deterministic `mr`/`clean` subcommands.
+- `contrib.md` owns commit, push, remote branch, MR/PR delivery decisions, and deterministic `commit`/`mr`/`clean` subcommands.
 
 ## Repository Config
 
