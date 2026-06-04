@@ -15,6 +15,8 @@ If the first argument is `commit`, treat it as the `localflow commit` subcommand
 
 If the first argument is `clean`, treat it as the `localflow clean` subcommand: run only the deterministic cleanup script. The script must refuse cleanup unless the MR/PR is already merged or the task branch is already merged into the base branch. When invoked from a long-lived branch, it may scan and clean all safe landed leftovers while skipping unmerged work.
 
+If the repository has **no** localflow config file (`.codex/localflow.toml` / `.claude/localflow.toml`), confirm `base_branch` / `delivery_mode` / `remote_provider` (only when ambiguous) / `remote` / `draft` / `version_policy` with the user and write `.<host>/localflow.toml` before delivering — do not silently rely on heuristics. Skip when a config already exists; never overwrite one without an explicit request.
+
 User request:
 
 ```text
