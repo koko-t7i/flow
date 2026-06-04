@@ -7,8 +7,10 @@ import json
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import sys
+import tempfile
 import ast
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -19,6 +21,20 @@ from urllib.parse import urlparse
 CACHE_DIR = Path.home() / ".cache" / "localflow"
 LONG_LIVED_BRANCHES = {"main", "test", "dev"}
 DEFAULT_TIMEOUT_SECONDS = 30
+CONVENTIONAL_TYPES = {
+    "feat",
+    "fix",
+    "refactor",
+    "perf",
+    "docs",
+    "test",
+    "chore",
+    "build",
+    "ci",
+    "style",
+    "revert",
+}
+BANNED_COMMIT_TOKENS = ("claude", "codex", "anthropic", "openai", "co-authored-by")
 
 
 @dataclass
@@ -36,12 +52,16 @@ def run_command(
     cwd: Path,
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
     shell: bool = False,
+    env: dict[str, str] | None = None,
 ) -> CommandResult:
+    run_env = shell_command_env() if shell else None
+    if env:
+        run_env = {**(run_env if run_env is not None else os.environ), **env}
     try:
         result = subprocess.run(
             args,
             cwd=cwd,
-            env=shell_command_env() if shell else None,
+            env=run_env,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -457,6 +477,177 @@ def normalize_review_state(review: dict[str, object] | None) -> str | None:
     return state or None
 
 
+def validate_commit_subject(subject: str | None) -> str | None:
+    """Return an error reason if the subject is not a valid English Conventional Commit, else None."""
+    if not subject or not subject.strip():
+        return "commit subject is empty"
+    text = subject.strip()
+    if not text.isascii():
+        return "commit subject must be English/ASCII only"
+    match = re.match(r"^(?P<type>[a-z]+)(\([^)]+\))?(!)?: .+", text)
+    if not match:
+        return "commit subject must follow Conventional Commits: type(scope)!: summary"
+    if match.group("type") not in CONVENTIONAL_TYPES:
+        return f"unknown commit type: {match.group('type')}"
+    if len(text) > 72:
+        return "commit subject exceeds 72 characters"
+    if text.endswith("."):
+        return "commit subject must not end with a period"
+    lowered = text.lower()
+    for token in BANNED_COMMIT_TOKENS:
+        if token in lowered:
+            return f"commit subject contains banned token: {token}"
+    return None
+
+
+def validate_task_branch(branch: str | None) -> str | None:
+    """Return an error reason if branch is not a valid `type/slug` task branch, else None."""
+    if not branch:
+        return "task branch is empty"
+    if branch in LONG_LIVED_BRANCHES:
+        return f"refusing to use long-lived branch as a task branch: {branch}"
+    if not re.match(r"^[a-z]+/[a-z0-9][a-z0-9._\-]*$", branch):
+        return "task branch must follow type/slug (e.g. feat/live-preview)"
+    branch_type = branch.split("/", 1)[0]
+    if branch_type not in CONVENTIONAL_TYPES:
+        return f"unknown task branch type: {branch_type}"
+    return None
+
+
+def is_ignored(cwd: Path, path: str, runner=run_command) -> bool:
+    return runner(["git", "check-ignore", "-q", path], cwd=cwd).ok
+
+
+def branch_exists(cwd: Path, branch: str, runner=run_command) -> bool:
+    return ref_exists(cwd, f"refs/heads/{branch}", runner) or ref_exists(
+        cwd, f"refs/remotes/origin/{branch}", runner
+    )
+
+
+def bump_semver(version: str, level: str) -> str | None:
+    match = re.match(r"^(\d+)\.(\d+)\.(\d+)", version.strip())
+    if not match:
+        return None
+    major, minor, patch = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+    if level == "major":
+        major, minor, patch = major + 1, 0, 0
+    elif level == "minor":
+        minor, patch = minor + 1, 0
+    elif level == "patch":
+        patch += 1
+    else:
+        return None
+    return f"{major}.{minor}.{patch}"
+
+
+def prepare_version_bump(
+    cwd: Path,
+    config: dict[str, object],
+    level: str,
+    runner=run_command,
+) -> dict[str, object]:
+    """Compute bumped version blobs without touching the working tree.
+
+    Reads each configured version file on disk (read-only), bumps the first SemVer it
+    contains, hashes the bumped content into a git blob, and returns the blobs to inject
+    into a snapshot index. Returns a stop() dict on failure.
+    """
+    policy = section(config, "version_policy")
+    if not policy.get("enabled"):
+        return stop("version_policy_disabled", "version_policy.enabled is not true; cannot --bump.")
+    files = policy.get("files") or []
+    if not isinstance(files, list) or not files:
+        return stop("version_files_missing", "version_policy.files is empty; nothing to bump.")
+    blobs: list[tuple[str, str]] = []
+    summary: dict[str, object] | None = None
+    for rel in files:
+        rel = str(rel)
+        path = Path(cwd) / rel
+        if not path.exists():
+            return stop("version_files_missing", f"configured version file is missing: {rel}")
+        text = path.read_text(encoding="utf-8")
+        match = re.search(r"\d+\.\d+\.\d+", text)
+        if not match:
+            return stop("version_files_unparseable", f"no SemVer found in {rel}")
+        old = match.group(0)
+        new = bump_semver(old, level)
+        if not new:
+            return stop("version_files_unparseable", f"could not bump version {old} in {rel}")
+        new_text = text[: match.start()] + new + text[match.end() :]
+        tmp = tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8")
+        try:
+            tmp.write(new_text)
+            tmp.close()
+            hashed = runner(["git", "hash-object", "-w", "--", tmp.name], cwd=cwd)
+        finally:
+            os.unlink(tmp.name)
+        if not hashed.ok:
+            return stop("version_files_unparseable", f"could not hash bumped {rel}: {hashed.stderr}")
+        blob = first_line(hashed.stdout)
+        if not blob:
+            return stop("version_files_unparseable", f"empty blob hash for {rel}")
+        blobs.append((rel, blob))
+        if summary is None:
+            summary = {"decision": "bumped", "from": old, "to": new, "files": files, "reason": f"--bump {level}"}
+    return {"ok": True, "version": summary, "blobs": blobs}
+
+
+def snapshot_branch(
+    cwd: Path,
+    branch: str,
+    base_ref: str,
+    paths: list[str],
+    message: str,
+    parent_ref: str,
+    *,
+    version_blobs: list[tuple[str, str]] | None = None,
+    runner=run_command,
+) -> dict[str, object]:
+    """Capture the current worktree state of `paths` into a side branch commit.
+
+    Uses a throwaway index (GIT_INDEX_FILE) so the real index, working tree, and HEAD are
+    never touched. Includes untracked files and respects .gitignore. Returns
+    {"ok": True, "sha": <commit>} or a stop() dict on failure.
+    """
+    index_dir = tempfile.mkdtemp(prefix="localflow-index-")
+    index_path = str(Path(index_dir) / "index")
+    env = {"GIT_INDEX_FILE": index_path}
+    try:
+        seed = runner(["git", "read-tree", base_ref], cwd=cwd, env=env)
+        if not seed.ok:
+            return stop("snapshot_failed", f"git read-tree failed: {seed.stderr}")
+        if paths:
+            added = runner(["git", "add", "--", *paths], cwd=cwd, env=env)
+            if not added.ok:
+                return stop("snapshot_failed", f"git add failed: {added.stderr}")
+        for rel, blob in version_blobs or []:
+            injected = runner(
+                ["git", "update-index", "--add", "--cacheinfo", f"100644,{blob},{rel}"],
+                cwd=cwd,
+                env=env,
+            )
+            if not injected.ok:
+                return stop("snapshot_failed", f"git update-index failed: {injected.stderr}")
+        tree_result = runner(["git", "write-tree"], cwd=cwd, env=env)
+        if not tree_result.ok:
+            return stop("snapshot_failed", f"git write-tree failed: {tree_result.stderr}")
+        tree = first_line(tree_result.stdout)
+        if not tree:
+            return stop("snapshot_failed", "git write-tree returned no tree")
+        commit_result = runner(["git", "commit-tree", tree, "-p", parent_ref, "-m", message], cwd=cwd)
+        if not commit_result.ok:
+            return stop("snapshot_failed", f"git commit-tree failed: {commit_result.stderr}")
+        commit = first_line(commit_result.stdout)
+        if not commit:
+            return stop("snapshot_failed", "git commit-tree returned no commit")
+        update = runner(["git", "update-ref", f"refs/heads/{branch}", commit], cwd=cwd)
+        if not update.ok:
+            return stop("snapshot_failed", f"git update-ref failed: {update.stderr}")
+        return {"ok": True, "sha": commit}
+    finally:
+        shutil.rmtree(index_dir, ignore_errors=True)
+
+
 def write_outputs(name: str, data: dict[str, object]) -> tuple[Path, Path]:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     json_path = CACHE_DIR / f"{name}.json"
@@ -468,9 +659,16 @@ def write_outputs(name: str, data: dict[str, object]) -> tuple[Path, Path]:
 
 def render_markdown(name: str, data: dict[str, object]) -> str:
     lines = [f"# Localflow {name}", "", f"- Generated: `{datetime.now(timezone.utc).isoformat()}`"]
-    for key in ("ok", "action", "provider", "base_branch", "branch", "url", "state", "stop_reason", "message"):
+    for key in ("ok", "action", "provider", "base_branch", "branch", "url", "state", "head_sha", "stop_reason", "message"):
         if key in data and data[key] is not None:
             lines.append(f"- {key}: `{data[key]}`")
+    if isinstance(data.get("version"), dict):
+        version = data["version"]  # type: ignore[index]
+        if version.get("decision") == "bumped":
+            lines.append(f"- version: `bumped {version.get('from')} -> {version.get('to')}`")
+    if data.get("included_files"):
+        lines.extend(["", "## Included files"])
+        lines.extend([f"- `{path}`" for path in data["included_files"]])  # type: ignore[index]
     if data.get("checks"):
         lines.extend(["", "## Checks"])
         for check in data["checks"]:  # type: ignore[index]
@@ -488,6 +686,6 @@ def render_markdown(name: str, data: dict[str, object]) -> str:
 
 
 def print_summary(data: dict[str, object]) -> None:
-    for key in ("ok", "action", "provider", "base_branch", "branch", "url", "state", "stop_reason", "message"):
+    for key in ("ok", "action", "provider", "base_branch", "branch", "url", "state", "head_sha", "stop_reason", "message"):
         if key in data and data[key] is not None:
             print(f"{key}: {data[key]}")

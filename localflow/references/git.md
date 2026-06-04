@@ -47,6 +47,10 @@ After creating or selecting an isolated worktree, run `check_env_files.py` from 
 
 In existing-changes mode, do not keep editing the original checkout by default. Stop when the original checkout is dirty, identify the files, and move or recreate the work in a task worktree only after the user clearly confirms those changes belong to the current task. If those changes are on a long-lived branch, do not stage or continue there.
 
+## Shared-Checkout Snapshot
+
+Some setups require one shared checkout to stay live — most commonly a frontend dev server giving a single combined preview while several agents edit the same directory and branch. A live preview binds to a directory, not a branch, so isolating into per-agent worktrees would split the preview. For these, do not switch the branch or commit on the shared checkout. Instead use `localflow mr --snapshot` (see contrib.md), which records the named task files into a side branch through a throwaway `GIT_INDEX_FILE`, leaving the working tree, real index, and `HEAD` untouched. This is a non-destructive, read-only operation on the shared checkout (consistent with the destructive-guard table above), so the preview is never interrupted and no other agent's context is disturbed. Scope it with `--paths`; two agents editing the same file still cannot be separated, which is the inherent limit of sharing one working directory.
+
 Track lifecycle provenance:
 
 - long-lived branch
