@@ -18,16 +18,13 @@ import repo_flow as flow
 
 
 def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
-    try:
-        config, config_path = flow.load_repo_config(cwd, host, runner)
-    except RuntimeError as exc:
-        return flow.stop("not_git_repo", str(exc))
-
-    root = flow.repo_root(cwd, runner)
-    task = lifecycle.require_clean_task_branch(root, "fast", runner)
-    if not task.get("ok"):
-        return task
-    branch = str(task["branch"])
+    context = lifecycle.load_task_context(cwd, host, "fast", runner)
+    if not context.get("ok"):
+        return context
+    config = context["config"]  # type: ignore[assignment]
+    config_path = context["config_path"]
+    root = Path(context["root"])
+    branch = str(context["branch"])
 
     worktree = lifecycle.linked_main_checkout(root, runner)
     if not worktree.get("ok"):
@@ -58,8 +55,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     checks_ok, checks = flow.run_checks(root, config, runner)
     if not checks_ok:
         data = flow.stop("checks_failed", "Configured pre-commit checks failed.", checks=checks, rebase_step=rebase_step)
-        json_path, md_path = flow.write_outputs("fast", data)
-        return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+        return flow.attach_outputs("fast", data)
     if not flow.is_clean_worktree(root, runner):
         return flow.stop("dirty_after_checks", "Checks left the task worktree dirty; local landing stopped.", checks=checks)
 
@@ -91,8 +87,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
         data = flow.stop("post_merge_checks_failed", "Post-merge checks failed after local landing.", **common)
     else:
         data = {"ok": True, **common}
-    json_path, md_path = flow.write_outputs("fast", data)
-    return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+    return flow.attach_outputs("fast", data)
 
 
 def main() -> int:
@@ -101,11 +96,7 @@ def main() -> int:
     parser.add_argument("--host", choices=("codex", "claude"), default="codex")
     args = parser.parse_args()
     data = run(Path(args.cwd).resolve(), args.host)
-    if "json_path" not in data:
-        json_path, md_path = flow.write_outputs("fast", data)
-        data = {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
-    flow.print_summary(data)
-    return 0 if data.get("ok") else 1
+    return flow.finish_command("fast", data)
 
 
 if __name__ == "__main__":

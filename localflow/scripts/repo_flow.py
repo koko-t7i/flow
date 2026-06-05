@@ -689,6 +689,16 @@ def write_outputs(name: str, data: dict[str, object]) -> tuple[Path, Path]:
     return json_path, md_path
 
 
+def attach_outputs(name: str, data: dict[str, object]) -> dict[str, object]:
+    expected_json = str(CACHE_DIR / f"{name}.json")
+    expected_md = str(CACHE_DIR / f"{name}.md")
+    if data.get("json_path") == expected_json and data.get("markdown_path") == expected_md:
+        return data
+    payload = {key: value for key, value in data.items() if key not in {"json_path", "markdown_path"}}
+    json_path, md_path = write_outputs(name, payload)
+    return {**payload, "json_path": str(json_path), "markdown_path": str(md_path)}
+
+
 def render_markdown(name: str, data: dict[str, object]) -> str:
     lines = [f"# Localflow {name}", "", f"- Generated: `{datetime.now(timezone.utc).isoformat()}`"]
     for key in (
@@ -753,3 +763,9 @@ def print_summary(data: dict[str, object]) -> None:
             print(f"{key}: {data[key]}")
     if data.get("cleanup_hint"):
         print(f"cleanup_hint: {data['cleanup_hint']}")
+
+
+def finish_command(name: str, data: dict[str, object]) -> int:
+    data = attach_outputs(name, data)
+    print_summary(data)
+    return 0 if data.get("ok") else 1

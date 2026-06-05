@@ -1,48 +1,12 @@
-import importlib.util
 import json
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "localflow" / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
+from helpers import FakeRunner, fail, load_script, ok, repo_flow
 
 
-def load_script(name: str):
-    spec = importlib.util.spec_from_file_location(name, SCRIPTS_DIR / f"{name}.py")
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-repo_flow = load_script("repo_flow")
 mr = load_script("mr")
-
-
-class FakeRunner:
-    def __init__(self, responses):
-        self.responses = {key: list(value) for key, value in responses.items()}
-        self.calls = []
-
-    def __call__(self, args, *, cwd, timeout=30, shell=False, env=None):
-        key = ("shell", args) if shell else tuple(args)
-        self.calls.append(key)
-        values = self.responses.get(key)
-        if not values:
-            return repo_flow.CommandResult(False, 1, "", f"unexpected command: {key}", args)
-        return values.pop(0)
-
-
-def ok(args, stdout="", stderr=""):
-    return repo_flow.CommandResult(True, 0, stdout, stderr, args)
-
-
-def fail(args, stderr="failed"):
-    return repo_flow.CommandResult(False, 1, "", stderr, args)
 
 
 class MrCommandTest(unittest.TestCase):
@@ -166,6 +130,7 @@ remote_provider = "gitlab"
         responses[("glab", "auth", "status", "--hostname", "git.aurtech.cc")] = [ok([])]
         responses[("gh", "auth", "status", "--hostname", "git.aurtech.cc")] = [fail([])]
         responses[("glab", "mr", "view", "feat/example", "--output", "json")] = [ok([], json.dumps(review))]
+        responses[("git", "rev-parse", "HEAD")] = [ok([], "abc123")]
         runner = FakeRunner(responses)
 
         result = mr.run(root, "codex", runner)
@@ -222,6 +187,7 @@ pre_commit = [
                 "number,state,url,headRefName,baseRefName,headRefOid,mergeStateStatus,statusCheckRollup,isDraft,title",
             )
         ] = [ok([], json.dumps(review))]
+        responses[("git", "rev-parse", "HEAD")] = [ok([], "abc123")]
         runner = FakeRunner(responses)
 
         result = mr.run(root, "codex", runner)
@@ -229,6 +195,46 @@ pre_commit = [
         self.assertTrue(result["ok"])
         self.assertEqual(result["action"], "status")
         self.assertEqual(result["url"], review["url"])
+        self.assertFalse(any(call[:3] == ("gh", "pr", "create") for call in runner.calls))
+        self.assertFalse(any(call[:2] == ("git", "push") for call in runner.calls))
+
+    def test_existing_pr_with_new_head_runs_checks_and_pushes(self):
+        root = self.make_repo(
+            """
+base_branch = "main"
+
+[validation]
+pre_commit = ["git diff --check"]
+"""
+        )
+        old_review = {
+            "number": 7,
+            "state": "OPEN",
+            "url": "https://github.com/koko-t7i/example/pull/7",
+            "headRefOid": "abc123",
+        }
+        responses = self.base_responses(root)
+        view_key = (
+            "gh",
+            "pr",
+            "view",
+            "feat/example",
+            "--json",
+            "number,state,url,headRefName,baseRefName,headRefOid,mergeStateStatus,statusCheckRollup,isDraft,title",
+        )
+        responses[view_key] = [ok([], json.dumps(old_review)), ok([], json.dumps(old_review))]
+        responses[("git", "rev-parse", "HEAD")] = [ok([], "def456")]
+        responses[("shell", "git diff --check")] = [ok([])]
+        responses[("git", "push", "-u", "origin", "feat/example")] = [ok([])]
+        runner = FakeRunner(responses)
+
+        result = mr.run(root, "codex", runner)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["action"], "updated")
+        self.assertEqual(result["head_sha"], "def456")
+        self.assertIn(("shell", "git diff --check"), runner.calls)
+        self.assertIn(("git", "push", "-u", "origin", "feat/example"), runner.calls)
         self.assertFalse(any(call[:3] == ("gh", "pr", "create") for call in runner.calls))
 
     def test_github_create_uses_fixed_title_body_and_push(self):

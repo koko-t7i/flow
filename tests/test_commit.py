@@ -1,51 +1,14 @@
-import importlib.util
 import json
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "localflow" / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
+from helpers import FakeRunner, fail, load_script, ok, repo_flow
 
 
-def load_script(name: str):
-    spec = importlib.util.spec_from_file_location(name, SCRIPTS_DIR / f"{name}.py")
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-repo_flow = load_script("repo_flow")
-mr = load_script("mr")
 commit = load_script("commit")
 
 GH_VIEW_FIELDS = "number,state,url,headRefName,baseRefName,headRefOid,mergeStateStatus,statusCheckRollup,isDraft,title"
-
-
-class FakeRunner:
-    def __init__(self, responses):
-        self.responses = {key: list(value) for key, value in responses.items()}
-        self.calls = []
-
-    def __call__(self, args, *, cwd, timeout=30, shell=False, env=None):
-        key = ("shell", args) if shell else tuple(args)
-        self.calls.append(key)
-        values = self.responses.get(key)
-        if not values:
-            return repo_flow.CommandResult(False, 1, "", f"unexpected command: {key}", args)
-        return values.pop(0)
-
-
-def ok(args, stdout="", stderr=""):
-    return repo_flow.CommandResult(True, 0, stdout, stderr, args)
-
-
-def fail(args, stderr="failed"):
-    return repo_flow.CommandResult(False, 1, "", stderr, args)
 
 
 class CommitModeTest(unittest.TestCase):
@@ -208,6 +171,8 @@ class CommitModeTest(unittest.TestCase):
         self.assertEqual(result["action"], "created")
         # The commit happened first, then the review was opened.
         self.assertEqual(result["commit"]["action"], "committed")
+        self.assertTrue(result["json_path"].endswith("commit.json"))
+        self.assertTrue(result["markdown_path"].endswith("commit.md"))
         self.assertIn(("git", "commit", "-F"), runner.calls)
         self.assertIn(("git", "push", "-u", "origin", "feat/example"), runner.calls)
         self.assertTrue(any(c[:3] == ("gh", "pr", "create") for c in runner.calls))

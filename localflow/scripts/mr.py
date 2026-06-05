@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
+import lifecycle
 import repo_flow as flow
 
 
@@ -65,19 +66,20 @@ def create_review(
 
 
 def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
-    try:
-        config, config_path = flow.load_repo_config(cwd, host, runner)
-    except RuntimeError as exc:
-        return flow.stop("not_git_repo", str(exc))
-
-    root = flow.repo_root(cwd, runner)
-    branch = flow.current_branch(root, runner)
-    if not branch:
-        return flow.stop("detached_head", "Current checkout is detached; localflow mr needs a named task branch.")
-    if branch in flow.LONG_LIVED_BRANCHES:
-        return flow.stop("long_lived_branch", f"Refusing to create a review request from long-lived branch {branch}.")
-    if not flow.is_clean_worktree(root, runner):
-        return flow.stop("dirty_worktree", "Worktree or staged area is not clean; commit or discard changes first.")
+    context = lifecycle.load_task_context(
+        cwd,
+        host,
+        "mr",
+        runner,
+        detached_message="Current checkout is detached; localflow mr needs a named task branch.",
+        long_lived_message="Refusing to create a review request from long-lived branch {branch}.",
+    )
+    if not context.get("ok"):
+        return context
+    config = context["config"]  # type: ignore[assignment]
+    config_path = context["config_path"]
+    root = Path(context["root"])
+    branch = str(context["branch"])
 
     base_result = flow.resolve_base_branch(root, config, runner)
     if not base_result.get("name"):
@@ -98,31 +100,56 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
 
     existing = flow.find_review(root, provider, branch, runner)
     if existing:
+        local_head = flow.head_sha(root, runner)
+        state = flow.normalize_review_state(existing)
+        if state != "open" or (local_head and existing.get("headRefOid") == local_head):
+            data = {
+                "ok": True,
+                "action": "status",
+                "provider": provider,
+                "base_branch": base_name,
+                "branch": branch,
+                "url": existing.get("url"),
+                "state": state,
+                "head_sha": existing.get("headRefOid"),
+                "config_path": config_path,
+            }
+            return flow.attach_outputs("mr", data)
+
+        checks_ok, checks = flow.run_checks(root, config, runner)
+        if not checks_ok:
+            data = flow.stop("checks_failed", "Configured pre-commit checks failed.", checks=checks)
+            return flow.attach_outputs("mr", data)
+
+        push = flow.push_branch(root, remote, branch, url, runner)
+        if not push.ok:
+            data = flow.stop("push_failed", "Could not push the task branch.", stderr=push.stderr, checks=checks)
+            return flow.attach_outputs("mr", data)
+
+        review = flow.find_review(root, provider, branch, runner) or existing
         data = {
             "ok": True,
-            "action": "status",
+            "action": "updated",
             "provider": provider,
             "base_branch": base_name,
             "branch": branch,
-            "url": existing.get("url"),
-            "state": flow.normalize_review_state(existing),
-            "head_sha": existing.get("headRefOid"),
+            "url": review.get("url"),
+            "state": flow.normalize_review_state(review),
+            "head_sha": local_head or review.get("headRefOid"),
+            "checks": checks,
             "config_path": config_path,
         }
-        json_path, md_path = flow.write_outputs("mr", data)
-        return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+        return flow.attach_outputs("mr", data)
 
     checks_ok, checks = flow.run_checks(root, config, runner)
     if not checks_ok:
         data = flow.stop("checks_failed", "Configured pre-commit checks failed.", checks=checks)
-        json_path, md_path = flow.write_outputs("mr", data)
-        return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+        return flow.attach_outputs("mr", data)
 
     push = flow.push_branch(root, remote, branch, url, runner)
     if not push.ok:
         data = flow.stop("push_failed", "Could not push the task branch.", stderr=push.stderr, checks=checks)
-        json_path, md_path = flow.write_outputs("mr", data)
-        return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+        return flow.attach_outputs("mr", data)
 
     title = flow.commit_subject(root, runner)
     body = flow.build_review_body(branch, base_name, flow.commit_lines(root, base_ref, runner), checks)
@@ -130,8 +157,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     created = create_review(root, provider, branch, base_name, title, body, draft, runner)
     if not created["ok"]:
         data = flow.stop("review_create_failed", "Could not create the review request.", stderr=created["stderr"])
-        json_path, md_path = flow.write_outputs("mr", data)
-        return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+        return flow.attach_outputs("mr", data)
 
     review = flow.find_review(root, provider, branch, runner)
     data = {
@@ -146,8 +172,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
         "checks": checks,
         "config_path": config_path,
     }
-    json_path, md_path = flow.write_outputs("mr", data)
-    return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+    return flow.attach_outputs("mr", data)
 
 
 def compose_message(args: argparse.Namespace) -> str | None:
@@ -252,8 +277,7 @@ def run_snapshot(
     # live base — the signature of a stale/behind base contaminating the review.
     drift = flow.snapshot_drift(root, base_ref, sha, list(paths), runner)
     if drift:
-        json_path, md_path = flow.write_outputs("mr", drift)
-        return {**drift, "json_path": str(json_path), "markdown_path": str(md_path)}
+        return flow.attach_outputs("mr", drift)
 
     url = flow.remote_url(root, remote, runner)
     provider_result = flow.resolve_provider(config, url, root, runner)
@@ -266,8 +290,7 @@ def run_snapshot(
     push = flow.push_branch(root, remote, branch, url, runner)
     if not push.ok:
         data = flow.stop("push_failed", "Could not push the snapshot branch.", stderr=push.stderr)
-        json_path, md_path = flow.write_outputs("mr", data)
-        return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+        return flow.attach_outputs("mr", data)
 
     if not existing:
         body_text = flow.build_review_body(branch, base_name, [f"{sha[:9]} {message}"], [])
@@ -275,8 +298,7 @@ def run_snapshot(
         created = create_review(root, provider, branch, base_name, message, body_text, draft, runner)
         if not created["ok"]:
             data = flow.stop("review_create_failed", "Could not create the review request.", stderr=created["stderr"])
-            json_path, md_path = flow.write_outputs("mr", data)
-            return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+            return flow.attach_outputs("mr", data)
 
     review = flow.find_review(root, provider, branch, runner)
     data = {
@@ -293,8 +315,7 @@ def run_snapshot(
         "worktree_untouched": True,
         "config_path": config_path,
     }
-    json_path, md_path = flow.write_outputs("mr", data)
-    return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+    return flow.attach_outputs("mr", data)
 
 
 def main() -> int:
@@ -343,11 +364,7 @@ def main() -> int:
     else:
         data = run(cwd, args.host)
 
-    if "json_path" not in data:
-        json_path, md_path = flow.write_outputs("mr", data)
-        data = {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
-    flow.print_summary(data)
-    return 0 if data.get("ok") else 1
+    return flow.finish_command("mr", data)
 
 
 if __name__ == "__main__":

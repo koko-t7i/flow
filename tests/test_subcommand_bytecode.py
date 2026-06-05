@@ -1,8 +1,6 @@
 import unittest
-from pathlib import Path
 
-
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "localflow" / "scripts"
+from helpers import SCRIPTS_DIR
 
 
 class SubcommandBytecodeTest(unittest.TestCase):

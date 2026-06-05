@@ -45,18 +45,96 @@ def main_checkout_root(common_dir: Path, runner=flow.run_command) -> Path:
     return Path(result.stdout)
 
 
-def require_clean_task_branch(root: Path, command_name: str, runner=flow.run_command) -> dict[str, object]:
-    branch = flow.current_branch(root, runner)
-    if not branch:
-        return flow.stop("detached_head", f"Current checkout is detached; localflow {command_name} needs a named task branch.")
-    if branch in flow.LONG_LIVED_BRANCHES:
-        return flow.stop(
-            "long_lived_branch",
-            f"Refusing to run localflow {command_name} directly on long-lived branch {branch}.",
-        )
+def require_clean_task_branch(
+    root: Path,
+    command_name: str,
+    runner=flow.run_command,
+    *,
+    detached_message: str | None = None,
+    long_lived_message: str | None = None,
+) -> dict[str, object]:
+    task = require_task_branch(
+        root,
+        command_name,
+        runner,
+        detached_message=detached_message,
+        long_lived_message=long_lived_message,
+    )
+    if not task.get("ok"):
+        return task
     if not flow.is_clean_worktree(root, runner):
         return flow.stop("dirty_worktree", "Worktree or staged area is not clean; commit or discard changes first.")
+    return task
+
+
+def require_task_branch(
+    root: Path,
+    command_name: str,
+    runner=flow.run_command,
+    *,
+    detached_message: str | None = None,
+    long_lived_message: str | None = None,
+) -> dict[str, object]:
+    branch = flow.current_branch(root, runner)
+    if not branch:
+        return flow.stop(
+            "detached_head",
+            detached_message or f"Current checkout is detached; localflow {command_name} needs a named task branch.",
+        )
+    if branch in flow.LONG_LIVED_BRANCHES:
+        message = (
+            long_lived_message.format(branch=branch)
+            if long_lived_message
+            else f"Refusing to run localflow {command_name} directly on long-lived branch {branch}."
+        )
+        return flow.stop(
+            "long_lived_branch",
+            message,
+        )
     return {"ok": True, "branch": branch}
+
+
+def load_task_context(
+    cwd: Path,
+    host: str,
+    command_name: str,
+    runner=flow.run_command,
+    *,
+    require_clean: bool = True,
+    detached_message: str | None = None,
+    long_lived_message: str | None = None,
+) -> dict[str, object]:
+    try:
+        config, config_path = flow.load_repo_config(cwd, host, runner)
+    except RuntimeError as exc:
+        return flow.stop("not_git_repo", str(exc))
+
+    root = flow.repo_root(cwd, runner)
+    if require_clean:
+        task = require_clean_task_branch(
+            root,
+            command_name,
+            runner,
+            detached_message=detached_message,
+            long_lived_message=long_lived_message,
+        )
+    else:
+        task = require_task_branch(
+            root,
+            command_name,
+            runner,
+            detached_message=detached_message,
+            long_lived_message=long_lived_message,
+        )
+    if not task.get("ok"):
+        return task
+    return {
+        "ok": True,
+        "config": config,
+        "config_path": config_path,
+        "root": root,
+        "branch": task["branch"],
+    }
 
 
 def linked_main_checkout(root: Path, runner=flow.run_command) -> dict[str, object]:

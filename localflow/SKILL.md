@@ -11,6 +11,16 @@ Keep this file as the workflow entrypoint. Load the referenced files only when t
 
 ## Subcommands
 
+### Script Resolution
+
+When a subcommand says to run `<script>.py`, resolve the first existing script path in this order:
+
+1. Repo-local copy: `./localflow/scripts/<script>.py`
+2. Claude Code plugin install: `${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/<script>.py`
+3. Codex skill install: `$HOME/.codex/skills/localflow/scripts/<script>.py`
+
+For scripts that accept `--host`, use `--host codex` in Codex and `--host claude` in Claude Code. If none of the paths exist, stop and ask the user to point at the installed script. Report generated JSON/Markdown paths plus the command-specific result fields; keep secrets redacted.
+
 ### `localflow check`
 
 Use when the user invokes the `localflow check` subcommand (`/localflow check` in Claude Code, `$localflow check` in Codex), asks to check localflow environment capability, or wants to know which local tools/auth paths are currently usable.
@@ -18,22 +28,13 @@ Use when the user invokes the `localflow check` subcommand (`/localflow check` i
 This is a read-only environment check, not a delivery workflow. Do not clarify requirements, create branches, edit repository files, commit, push, or clean worktrees for this subcommand.
 
 1. Read [references/environment.md](references/environment.md).
-2. Run the environment snapshot script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
+2. Run `check_environment.py` for the user's current working directory:
 
    ```bash
-   # 1. Repo-local copy when cwd is inside the localflow repo.
    uv run python ./localflow/scripts/check_environment.py --cwd "$PWD"
-
-   # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
-   uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/check_environment.py" --cwd "$PWD"
-
-   # 3. Codex skill install.
-   uv run python "$HOME/.codex/skills/localflow/scripts/check_environment.py" --cwd "$PWD"
    ```
 
-   If none of these paths exist on the current machine, stop and ask the user to point at the installed `check_environment.py`.
-
-3. Report the Markdown snapshot path, the JSON snapshot path, and the actionable failures only. Keep secrets redacted.
+3. Report the Markdown snapshot path, JSON snapshot path, and actionable failures only.
 
 ### Env File Inspection
 
@@ -42,17 +43,10 @@ worktree lacks repository-local test configuration. It reports paths, git
 tracking/ignore status, redacted key names, and same-repository sibling
 worktree candidates; it does not validate env value semantics or print values.
 
-Probe the candidates below in order and use the first one that resolves:
+Run `check_env_files.py` via the shared script resolution order:
 
 ```bash
-# 1. Repo-local copy when cwd is inside the localflow repo.
 uv run python ./localflow/scripts/check_env_files.py --cwd "$PWD"
-
-# 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
-uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/check_env_files.py" --cwd "$PWD"
-
-# 3. Codex skill install.
-uv run python "$HOME/.codex/skills/localflow/scripts/check_env_files.py" --cwd "$PWD"
 ```
 
 ### `localflow mr`
@@ -61,17 +55,10 @@ Use when the user invokes `/localflow mr` in Claude Code or `$localflow mr` in C
 
 This command creates or inspects the MR/PR for the current already-committed task branch. It does not implement changes, commit, merge, or clean up lifecycle resources.
 
-1. Run the deterministic MR script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
+1. Run `mr.py` for the user's current working directory:
 
    ```bash
-   # 1. Repo-local copy when cwd is inside the localflow repo.
    uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex
-
-   # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
-   uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/mr.py" --cwd "$PWD" --host claude
-
-   # 3. Codex skill install.
-   uv run python "$HOME/.codex/skills/localflow/scripts/mr.py" --cwd "$PWD" --host codex
    ```
 
 2. Report the Markdown snapshot path, JSON snapshot path, MR/PR URL, action, and stop reason when present. Do not hand-write fallback `git`, `gh`, or `glab` commands unless the script reports a missing script path.
@@ -80,7 +67,7 @@ This command creates or inspects the MR/PR for the current already-committed tas
 
 Use when the user invokes `/localflow tree` in Claude Code or `$localflow tree` in Codex, or asks for the normal isolated-worktree review flow.
 
-This is the default tree mode: task branch + isolated worktree + commit + MR/PR review. It never lands into the local long-lived branch and never cleans worktrees or branches. Read [references/modes/tree.md](references/modes/tree.md), then continue through the normal workflow using `localflow commit`, `localflow mr`, and later `localflow clean` after the MR/PR is merged.
+This is the default review workflow. Read [references/modes/tree.md](references/modes/tree.md), then continue through the normal workflow using `localflow commit`, `localflow mr`, and later `localflow clean` after the MR/PR is merged.
 
 ### `localflow fast`
 
@@ -89,17 +76,10 @@ Use when the user invokes `/localflow fast` in Claude Code or `$localflow fast` 
 This command lands the clean task branch into the local long-lived branch by rebase + fast-forward merge. It does not create an MR/PR, does not push to remote, and does not clean task worktrees or branches.
 
 1. Read [references/modes/fast.md](references/modes/fast.md).
-2. Run the deterministic fast script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
+2. Run `fast.py` from the clean committed task worktree:
 
    ```bash
-   # 1. Repo-local copy when cwd is inside the localflow repo.
    uv run python ./localflow/scripts/fast.py --cwd "$PWD" --host codex
-
-   # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
-   uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/fast.py" --cwd "$PWD" --host claude
-
-   # 3. Codex skill install.
-   uv run python "$HOME/.codex/skills/localflow/scripts/fast.py" --cwd "$PWD" --host codex
    ```
 
 3. Report the Markdown snapshot path, JSON snapshot path, base branch, task branch, landed SHA, post-merge check result, local base ahead/behind remote counts, and that cleanup was not run. Do not manually delete worktrees or branches after `fast`; use `localflow clean` when cleanup is desired.
@@ -128,18 +108,11 @@ Use when the user invokes `/localflow commit` in Claude Code or `$localflow comm
 
 This command stages ONLY the named `--paths`, writes an English Conventional Commit on the current task branch, and — with `--mr` — opens the review via the normal `mr` flow. It refuses to run on a detached HEAD or a long-lived branch, never uses `git add .`, and validates the commit subject before any git write.
 
-1. Run the deterministic commit script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
+1. Run `commit.py` from the task worktree:
 
    ```bash
-   # 1. Repo-local copy when cwd is inside the localflow repo.
    uv run python ./localflow/scripts/commit.py --cwd "$PWD" --host codex \
      --paths src/Preview.tsx --type feat --scope preview --summary "add live preview" [--mr]
-
-   # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
-   uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/commit.py" --cwd "$PWD" --host claude --paths <files...> --message "type(scope): summary" [--mr]
-
-   # 3. Codex skill install.
-   uv run python "$HOME/.codex/skills/localflow/scripts/commit.py" --cwd "$PWD" --host codex --paths <files...> --type <t> --summary "<s>" [--mr]
    ```
 
 2. `--paths` is required and is the only thing staged. Supply the message as `--message "type(scope): summary"` or as `--type`/`--scope`/`--summary` (+ `--body`, `--breaking`). With `--mr`, the commit and the review open in one step; if the review step fails the commit is kept (rerun `mr`). Report the JSON/Markdown snapshot path, branch, head SHA, and — when `--mr` — the MR/PR URL, action, and stop reason.
@@ -155,17 +128,10 @@ Use when the user invokes `/localflow clean` in Claude Code or `$localflow clean
 
 This command only cleans already-landed delivery units. It never merges. On a task branch, it cleans that branch only after its MR/PR is merged or the branch is already merged into the base branch for Local Landing. On a long-lived branch, it scans local branches, owned worktrees, and remote branches, then cleans only candidates that are already landed.
 
-1. Run the deterministic clean script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
+1. Run `clean.py` for the user's current working directory:
 
    ```bash
-   # 1. Repo-local copy when cwd is inside the localflow repo.
    uv run python ./localflow/scripts/clean.py --cwd "$PWD" --host codex
-
-   # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
-   uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/clean.py" --cwd "$PWD" --host claude
-
-   # 3. Codex skill install.
-   uv run python "$HOME/.codex/skills/localflow/scripts/clean.py" --cwd "$PWD" --host codex
    ```
 
 2. Report the Markdown snapshot path, JSON snapshot path, cleanup action, cleaned branches, skipped branches, and stop reason when present. Do not manually delete branches or worktrees after the script stops.
