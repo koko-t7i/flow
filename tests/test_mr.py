@@ -213,7 +213,6 @@ pre_commit = ["git diff --check"]
             "url": "https://github.com/koko-t7i/example/pull/7",
             "headRefOid": "abc123",
         }
-        updated_review = {**old_review, "headRefOid": "def456"}
         responses = self.base_responses(root)
         view_key = (
             "gh",
@@ -223,7 +222,7 @@ pre_commit = ["git diff --check"]
             "--json",
             "number,state,url,headRefName,baseRefName,headRefOid,mergeStateStatus,statusCheckRollup,isDraft,title",
         )
-        responses[view_key] = [ok([], json.dumps(old_review)), ok([], json.dumps(updated_review))]
+        responses[view_key] = [ok([], json.dumps(old_review)), ok([], json.dumps(old_review))]
         responses[("git", "rev-parse", "HEAD")] = [ok([], "def456")]
         responses[("shell", "git diff --check")] = [ok([])]
         responses[("git", "push", "-u", "origin", "feat/example")] = [ok([])]

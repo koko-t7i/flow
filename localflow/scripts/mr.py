@@ -135,7 +135,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
             "branch": branch,
             "url": review.get("url"),
             "state": flow.normalize_review_state(review),
-            "head_sha": review.get("headRefOid") or local_head,
+            "head_sha": local_head or review.get("headRefOid"),
             "checks": checks,
             "config_path": config_path,
         }
