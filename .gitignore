@@ -35,3 +35,4 @@ env/
 # Localflow local secrets
 .codex/passphrase
 .claude/passphrase
+.pi/passphrase
