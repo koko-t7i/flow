@@ -92,6 +92,10 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
         return provider_result
     provider = str(provider_result["provider"])
 
+    subject_check = flow.validate_review_commit_subjects(root, base_ref, runner)
+    if not subject_check.get("ok"):
+        return flow.attach_outputs("mr", subject_check)
+
     existing = flow.find_review(root, provider, branch, runner)
     if existing:
         local_head = flow.head_sha(root, runner)
@@ -237,6 +241,16 @@ def run_snapshot(
         )
 
     parent_ref = f"refs/heads/{branch}" if flow.branch_exists(root, branch, runner) else base_ref
+    if parent_ref != base_ref:
+        subject_check = flow.validate_review_commit_subjects(
+            root,
+            base_ref,
+            runner,
+            head_ref=parent_ref,
+            extra_subject=message,
+        )
+        if not subject_check.get("ok"):
+            return flow.attach_outputs("mr", subject_check)
 
     full_message = f"{message}\n\n{body.strip()}" if body else message
     snapshot = flow.snapshot_branch(root, branch, base_ref, list(paths), full_message, parent_ref, runner=runner)

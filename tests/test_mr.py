@@ -33,6 +33,9 @@ class MrCommandTest(unittest.TestCase):
             ("git", "rev-parse", "--verify", "--quiet", "main"): [ok([])],
             ("git", "rev-list", "--count", "main..HEAD"): [ok([], "1")],
             ("git", "remote", "get-url", "origin"): [ok([], "git@github.com:koko-t7i/example.git")],
+            ("git", "log", "--reverse", "--format=%H%x00%s", "main..HEAD"): [
+                ok([], "abc123\x00docs: update workflow")
+            ],
         }
 
     def test_current_host_config_wins_without_merging_fallback(self):
@@ -272,6 +275,51 @@ commands = [
         self.assertIn(("git", "push", "-u", "origin", "feat/example"), runner.calls)
         self.assertFalse(any(call[:3] == ("gh", "pr", "create") for call in runner.calls))
 
+    def test_existing_pr_update_rejects_duplicate_commit_subjects_before_push(self):
+        root = self.make_repo()
+        old_review = {
+            "number": 7,
+            "state": "OPEN",
+            "url": "https://github.com/koko-t7i/example/pull/7",
+            "headRefOid": "abc123",
+        }
+        responses = self.base_responses(root)
+        responses[("git", "log", "--reverse", "--format=%H%x00%s", "main..HEAD")] = [
+            ok([], "abc123\x00refactor(config): slim localflow schema\nold456\x00refactor(config): slim localflow schema")
+        ]
+        responses[
+            (
+                "gh",
+                "pr",
+                "view",
+                "feat/example",
+                "--json",
+                "number,state,url,headRefName,baseRefName,headRefOid,mergeStateStatus,statusCheckRollup,isDraft,title",
+            )
+        ] = [ok([], json.dumps(old_review))]
+        runner = FakeRunner(responses)
+
+        result = mr.run(root, "codex", runner)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["stop_reason"], "duplicate_commit_subject")
+        self.assertIn("refactor(config): slim localflow schema", result["message"])
+        self.assertFalse(any(call[:2] == ("git", "push") for call in runner.calls))
+
+    def test_review_rejects_invalid_manual_commit_subject_before_push(self):
+        root = self.make_repo()
+        responses = self.base_responses(root)
+        responses[("git", "log", "--reverse", "--format=%H%x00%s", "main..HEAD")] = [
+            ok([], "abc123\x00fix: 修复 push fallback")
+        ]
+        runner = FakeRunner(responses)
+
+        result = mr.run(root, "codex", runner)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["stop_reason"], "invalid_commit_message")
+        self.assertFalse(any(call[:2] == ("git", "push") for call in runner.calls))
+
     def test_github_create_uses_fixed_title_body_and_push(self):
         root = self.make_repo()
         responses = self.base_responses(root)
@@ -439,6 +487,9 @@ class SnapshotModeTest(unittest.TestCase):
         responses = self.snapshot_responses(root, review=review)
         # Branch already exists locally -> parent is its tip, commit-tree changes accordingly.
         responses[("git", "rev-parse", "--verify", "--quiet", "refs/heads/feat/live-preview")] = [ok([])]
+        responses[
+            ("git", "log", "--reverse", "--format=%H%x00%s", "origin/main..refs/heads/feat/live-preview")
+        ] = [ok([], "old123\x00feat: add first preview")]
         responses[("git", "commit-tree", "tree123", "-p", "refs/heads/feat/live-preview", "-m", "feat: add live preview")] = [ok([], "commit456")]
         runner = FakeRunner(responses)
 
@@ -459,6 +510,30 @@ class SnapshotModeTest(unittest.TestCase):
         )
         # Existing review -> do not create a duplicate.
         self.assertFalse(any(c[:3] == ("gh", "pr", "create") for c in runner.calls))
+
+    def test_snapshot_rejects_duplicate_subject_on_existing_branch(self):
+        root = self.make_repo()
+        review = {"state": "OPEN", "url": "https://github.com/koko-t7i/example/pull/9", "headRefOid": "old"}
+        responses = self.snapshot_responses(root, review=review)
+        responses[("git", "rev-parse", "--verify", "--quiet", "refs/heads/feat/live-preview")] = [ok([])]
+        responses[
+            ("git", "log", "--reverse", "--format=%H%x00%s", "origin/main..refs/heads/feat/live-preview")
+        ] = [ok([], "old123\x00feat: add live preview")]
+        runner = FakeRunner(responses)
+
+        result = mr.run_snapshot(
+            root,
+            "codex",
+            branch="feat/live-preview",
+            paths=["src/Preview.tsx"],
+            message="feat: add live preview",
+            runner=self.dynamic(runner),
+        )
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["stop_reason"], "duplicate_commit_subject")
+        self.assertFalse(any(c[:2] == ("git", "commit-tree") for c in runner.calls))
+        self.assertFalse(any(c[:2] == ("git", "push") for c in runner.calls))
 
     def test_snapshot_stops_when_base_fetch_fails(self):
         # An auto-resolved base must refresh from the remote; a failed fetch must stop

@@ -44,6 +44,11 @@ Add a body only for non-obvious why, breaking changes, security fixes, data migr
 
 Never include non-English text, AI attribution, tool signatures, or mentions of Claude, Codex, Anthropic, OpenAI, or agent tooling in commit messages, MR/PR titles, or MR/PR descriptions.
 
+When updating an already-pushed review branch, do not rewrite history unless
+the user explicitly approves force push. Append a follow-up commit instead, but
+give that commit its own precise Conventional Commit subject; do not reuse an
+existing subject in the same review.
+
 For multi-line messages, prefer `git commit -F <tempfile>` or the editor flow instead of complex escaped newlines in `git commit -m`.
 
 ## Repository Delivery Mode
@@ -63,7 +68,10 @@ review request, or clean worktrees/branches.
 
 ## Push and MR/PR
 
-Before push, confirm branch name, commit message, current-task-only commits, check results, and clean staged state.
+Before push, confirm branch name, commit message, current-task-only commits,
+check results, and clean staged state. `localflow mr` refuses to push a review
+branch when any commit ahead of the base has an invalid Conventional Commit
+subject or when two commits in the review share the same subject.
 
 Recover push authentication safely:
 
