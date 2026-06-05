@@ -154,6 +154,8 @@ def cleanup_scanned_candidate(
     remote_exists: bool,
     worktree: dict[str, object] | None,
     cleanup_remote: bool,
+    config: dict[str, object],
+    config_path: str | None,
     runner=flow.run_command,
 ) -> tuple[str, dict[str, object], str | None]:
     local_sha = ref_sha(root, branch, runner) if local_exists else None
@@ -190,7 +192,7 @@ def cleanup_scanned_candidate(
 
     remote_cleanup: dict[str, object] = {"skipped": not cleanup_remote or not remote_exists}
     if cleanup_remote and remote_exists:
-        deleted = flow.delete_remote_branch(root, remote, branch, url, runner)
+        deleted = flow.delete_remote_branch(root, remote, branch, url, runner, config=config, config_path=config_path)
         tracking = flow.delete_remote_tracking_ref(root, remote, branch, runner) if deleted.ok else None
         remote_cleanup = {
             "ok": deleted.ok,
@@ -254,15 +256,14 @@ def scan_landed_cleanup(
     local_branches = ref_names(root, "refs/heads", runner)
     if local_branches is None:
         return flow.stop("branch_scan_failed", "Could not list local branches.")
-    remote_branches = remote_branch_names(root, remote, runner)
+    remote_branches = [] if not provider else remote_branch_names(root, remote, runner)
     if remote_branches is None:
         return flow.stop("branch_scan_failed", "Could not list remote branches.")
     worktrees = worktree_entries(root, runner)
     if worktrees is None:
         return flow.stop("worktree_scan_failed", "Could not list git worktrees.")
 
-    cleanup_setting = str(flow.section(config, "delivery").get("cleanup_remote_branch") or "auto").lower()
-    cleanup_remote = cleanup_setting not in {"false", "never", "no"}
+    cleanup_remote = bool(provider)
     local_set = set(local_branches)
     remote_set = set(remote_branches)
     candidates = sorted((local_set | remote_set | set(worktrees)) - flow.LONG_LIVED_BRANCHES)
@@ -282,6 +283,8 @@ def scan_landed_cleanup(
             remote_exists=candidate in remote_set,
             worktree=worktrees.get(candidate),
             cleanup_remote=cleanup_remote,
+            config=config,
+            config_path=config_path,
             runner=runner,
         )
         if status == "failed":
@@ -319,6 +322,9 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
         config, config_path = flow.load_repo_config(cwd, host, runner)
     except RuntimeError as exc:
         return flow.stop("not_git_repo", str(exc))
+    config_status = flow.require_repo_config(config, config_path)
+    if not config_status.get("ok"):
+        return config_status
 
     root = flow.repo_root(cwd, runner)
     branch = flow.current_branch(root, runner)
@@ -334,11 +340,15 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     base_ref = str(base_result["ref"])
     head = flow.head_sha(root, runner)
 
-    mr_config = flow.section(config, "mr")
-    remote = str(mr_config.get("remote") or "origin")
+    remote = flow.DEFAULT_REMOTE
     url = flow.remote_url(root, remote, runner)
     provider_result = flow.resolve_provider(config, url, root, runner)
-    provider = str(provider_result.get("provider") or "")
+    if provider_result.get("stop_reason") == "review_cli_disabled":
+        provider = ""
+    elif not provider_result.get("provider"):
+        return provider_result
+    else:
+        provider = str(provider_result["provider"])
 
     if branch in flow.LONG_LIVED_BRANCHES:
         return scan_landed_cleanup(root, config, config_path, base_name, base_ref, provider, remote, url, runner)
@@ -351,7 +361,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
             return flow.stop("review_not_merged", "MR/PR is not merged; localflow clean will not clean it.")
         if head and review.get("headRefOid") and str(review["headRefOid"]) != head:
             return flow.stop("head_sha_mismatch", "Local HEAD does not match the merged MR/PR head SHA.")
-        fetch = flow.fetch_branch(root, remote, base_name, runner)
+        fetch = flow.fetch_branch(root, remote, base_name, runner, config=config, config_path=config_path)
         if not fetch.ok:
             return flow.stop("base_fetch_failed", "Could not fetch the base branch after MR/PR merge.", stderr=fetch.stderr)
         landed_by = "remote_review"
@@ -360,10 +370,9 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
         if not ancestor.ok:
             return flow.stop("review_not_merged", "No merged MR/PR found and the task branch is not merged into base.")
 
-    cleanup_setting = str(flow.section(config, "delivery").get("cleanup_remote_branch") or "auto").lower()
-    remote_cleanup: dict[str, object] = {"skipped": cleanup_setting in {"false", "never", "no"}}
+    remote_cleanup: dict[str, object] = {"skipped": not bool(provider)}
     if not remote_cleanup["skipped"]:
-        deleted = flow.delete_remote_branch(root, remote, branch, url, runner)
+        deleted = flow.delete_remote_branch(root, remote, branch, url, runner, config=config, config_path=config_path)
         tracking = flow.delete_remote_tracking_ref(root, remote, branch, runner) if deleted.ok else None
         remote_cleanup = {
             "ok": deleted.ok,

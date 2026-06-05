@@ -381,9 +381,9 @@ def render_markdown(snapshot: dict[str, object]) -> str:
             "## Remote Operation Guidance",
             "",
             "- Prefer the configured Git remote when it works.",
-            "- If SSH fails because of publickey or passphrase state, use authenticated `gh`/`glab` for remote API operations and token-backed HTTPS fallback.",
+            "- If SSH fails because of publickey or passphrase state, use authenticated `gh`/`glab` for remote API operations, the configured ignored passphrase file for git retry, or token-backed HTTPS fallback.",
             "- Do not permanently rewrite `origin` unless the user explicitly asks.",
-            "- Never read, print, store, or upload private key contents or passphrases.",
+            "- Never read, print, store, or upload private key contents; never print, commit, upload, or snapshot passphrases.",
             "",
         ]
     )

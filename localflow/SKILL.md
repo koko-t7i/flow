@@ -92,12 +92,11 @@ Use `--snapshot` when work is uncommitted on a shared checkout that must not be 
 uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex \
   --snapshot --branch feat/live-preview \
   --paths src/Preview.tsx src/hooks/usePreview.ts \
-  --type feat --summary "add live preview" [--bump minor]
+  --type feat --summary "add live preview"
 ```
 
 - `--paths` is required and scopes the snapshot to the task's files. In a shared directory this is what keeps another agent's concurrent edits out of the MR. Two agents editing the *same* file cannot be separated — that is the inherent limit of sharing one working directory.
 - Supply the message as `--message "feat(scope): summary"` or as `--type`/`--scope`/`--summary` (+ `--body`, `--breaking`). The subject is validated as an English Conventional Commit before any git write.
-- `--bump patch|minor|major` injects a version bump into the snapshot only (per `[version_policy]`); the on-disk version file is left untouched.
 - Re-running the same `--branch` appends a commit (parent = the existing branch tip) and updates the open MR/PR; no force push.
 - The snapshot is anchored on the **live** target: snapshot mode first `git fetch`es the base branch and reads/parents the snapshot on the freshly-fetched `origin/<base>`, so a shared checkout whose local tracking ref lags the real remote does not pull already-merged files into the review. A failed fetch stops with `base_fetch_failed`.
 - If the resulting snapshot would change anything **outside `--paths`** relative to the live base, the script stops with `snapshot_base_drift` and does not push — the signature of a stale/behind base. Sync the base branch (or re-`git fetch`) and retry.
@@ -140,8 +139,8 @@ This command only cleans already-landed delivery units. It never merges. On a ta
 
 1. **Clarify requirement.** Restate the task, acceptance criteria, scope, non-goals, and blockers. Read [references/clarify.md](references/clarify.md).
 2. **Check environment capability.** Read or refresh the local CLI/auth/permission snapshot before assuming `git`, `gh`, `glab`, `docker`, package managers, or Python aliases work. Read [references/environment.md](references/environment.md).
-3. **Read repository config.** If present, read the current-host config first: Codex uses `.codex/localflow.toml`; Claude Code uses `.claude/localflow.toml`. If the current-host file is missing, fall back to the other host's file. User instructions override config; config overrides defaults. If both host files exist, do not merge them. **If neither host's config file exists** (a subcommand result shows `config_path: null`), do not silently rely on heuristics: before the first delivery action, confirm `base_branch` / `delivery_mode` / `remote_provider` (only when ambiguous) / `remote` / `draft` / `version_policy` with the user, then write `.<host>/localflow.toml`. See [references/config.md](references/config.md).
-4. **Resolve repository workflow.** Determine the long-lived base branch, delivery mode, task branch, worktree lifecycle, and whether this is `tree` review mode or `fast` local-integration mode. Default to `tree` with an isolated task worktree and do not edit the original checkout. Read [references/git.md](references/git.md), [references/modes/tree.md](references/modes/tree.md), and [references/modes/fast.md](references/modes/fast.md) as needed.
+3. **Read repository config.** If present, read the current-host config first: Codex uses `.codex/localflow.toml`; Claude Code uses `.claude/localflow.toml`. If the current-host file is missing, fall back to the other host's file. User instructions override config; config overrides defaults. If both host files exist, do not merge them. **If neither host's config file exists or the file is old schema**, do not silently rely on heuristics: before the first delivery action, confirm `base_branch` / `remote_cli` / `passphrase` / `default_mode` with the user, then write `.<host>/localflow.toml`. See [references/config.md](references/config.md).
+4. **Resolve repository workflow.** Determine the long-lived base branch, default mode (`tree` or `fast`), task branch, and worktree lifecycle. Default to `tree` with an isolated task worktree and do not edit the original checkout. `remote_cli = "none"` means no MR/PR review can be created; use `fast` for local landing. Read [references/git.md](references/git.md), [references/modes/tree.md](references/modes/tree.md), and [references/modes/fast.md](references/modes/fast.md) as needed.
 5. **Implement and verify.** Use task-appropriate checks, fresh evidence, and review gates. Use TDD only when it fits code behavior work. Read [references/verify.md](references/verify.md).
 6. **Commit.** Stage only current-task files and write a concise English Conventional Commit message. In the default isolated worktree, the deterministic `localflow commit` subcommand does this (add `--mr` to commit and open the review in one step); on a shared checkout where agents share a branch, skip the commit step and deliver with `localflow mr --snapshot --paths …` instead. Read [references/contrib.md](references/contrib.md).
 7. **Deliver.** Use the repository delivery mode: Local Landing, Remote Review, or Push Only. Read [references/contrib.md](references/contrib.md).
@@ -165,7 +164,7 @@ Repository config is optional and lives inside the target repository, not in the
 - Codex: `.codex/localflow.toml`
 - Claude Code: `.claude/localflow.toml`
 
-Both files use the same schema. Prefer the current host's file; use the other only as fallback. Missing fields inherit normal localflow defaults. Invalid, conflicting, or unsafe config values are stop conditions when they affect the current task. When **neither** file exists, confirm the key settings with the user and write `.<host>/localflow.toml` before delivering, rather than silently using heuristics — see [references/config.md](references/config.md). The schema and the confirm-and-write gate are owned by [references/config.md](references/config.md).
+Both files use the same schema. Prefer the current host's file; use the other only as fallback. The required fields are `base_branch`, `remote_cli`, `passphrase`, and `default_mode`; missing or old-schema fields are stop conditions until the user confirms the current repository settings. See [references/config.md](references/config.md). The schema and the confirm-and-write gate are owned by [references/config.md](references/config.md).
 
 ## Stop Conditions
 

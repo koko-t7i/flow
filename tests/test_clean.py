@@ -15,12 +15,12 @@ class CleanCommandTest(unittest.TestCase):
         root = Path(temp.name)
         (root / ".codex").mkdir()
         (root / ".codex" / "localflow.toml").write_text(
-            """
+            """\
+version = 1
 base_branch = "main"
-
-[delivery]
-remote_provider = "github"
-cleanup_remote_branch = "auto"
+remote_cli = "gh"
+passphrase = "file:passphrase"
+default_mode = "tree"
 """,
             encoding="utf-8",
         )
@@ -107,6 +107,34 @@ cleanup_remote_branch = "auto"
         self.assertEqual(result["landed_by"], "local_landing")
         self.assertIn(("git", "branch", "-d", "feat/example"), runner.calls)
         self.assertNotIn(("git", "branch", "-D", "feat/example"), runner.calls)
+
+    def test_remote_cli_none_cleans_local_landing_without_remote_calls(self):
+        root = self.make_repo()
+        (root / ".codex" / "localflow.toml").write_text(
+            """\
+version = 1
+base_branch = "main"
+remote_cli = "none"
+passphrase = "file:passphrase"
+default_mode = "fast"
+""",
+            encoding="utf-8",
+        )
+        responses = self.base_responses(root)
+        responses[("git", "merge-base", "--is-ancestor", "HEAD", "main")] = [ok([])]
+        responses[("git", "rev-parse", "--git-dir")] = [ok([], ".git")]
+        responses[("git", "rev-parse", "--git-common-dir")] = [ok([], ".git")]
+        responses[("git", "checkout", "main")] = [ok([])]
+        responses[("git", "branch", "-d", "feat/example")] = [ok([])]
+        runner = FakeRunner(responses)
+
+        result = clean.run(root, "codex", runner)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["landed_by"], "local_landing")
+        self.assertEqual(result["remote_cleanup"], {"skipped": True})
+        self.assertFalse(any(call[:2] == ("gh", "pr") or call[:2] == ("glab", "mr") for call in runner.calls))
+        self.assertFalse(any(call[:2] == ("git", "push") for call in runner.calls))
 
     def test_merged_pr_cleans_normal_checkout(self):
         root = self.make_repo()

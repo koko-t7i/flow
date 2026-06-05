@@ -108,6 +108,9 @@ def load_task_context(
         config, config_path = flow.load_repo_config(cwd, host, runner)
     except RuntimeError as exc:
         return flow.stop("not_git_repo", str(exc))
+    config_status = flow.require_repo_config(config, config_path)
+    if not config_status.get("ok"):
+        return config_status
 
     root = flow.repo_root(cwd, runner)
     if require_clean:
@@ -162,7 +165,15 @@ def checkout_base(main_root: Path, base_name: str, runner=flow.run_command) -> d
     return {"ok": True, "base_step": step}
 
 
-def sync_local_base(main_root: Path, remote: str, base_name: str, runner=flow.run_command) -> dict[str, object]:
+def sync_local_base(
+    main_root: Path,
+    remote: str,
+    base_name: str,
+    runner=flow.run_command,
+    *,
+    config: dict[str, object] | None = None,
+    config_path: str | None = None,
+) -> dict[str, object]:
     """Fetch remote base and fast-forward local base when possible.
 
     Local base may already be ahead of remote after earlier fast landings; that
@@ -171,7 +182,7 @@ def sync_local_base(main_root: Path, remote: str, base_name: str, runner=flow.ru
     if not flow.ref_exists(main_root, base_name, runner):
         return flow.stop("base_branch_missing", f"Local base branch does not exist: {base_name}")
 
-    fetch = flow.fetch_branch(main_root, remote, base_name, runner)
+    fetch = flow.fetch_branch(main_root, remote, base_name, runner, config=config, config_path=config_path)
     fetch_step = {"command": flow.command_text(fetch.args), "ok": fetch.ok, "stderr": fetch.stderr}
     if not fetch.ok:
         return flow.stop("base_fetch_failed", "Could not fetch the base branch before local landing.", base_step=fetch_step)

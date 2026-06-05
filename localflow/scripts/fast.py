@@ -36,9 +36,8 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
         return base_result
     base_name = str(base_result["name"])
 
-    mr_config = flow.section(config, "mr")
-    remote = str(mr_config.get("remote") or "origin")
-    base_sync = lifecycle.sync_local_base(main_root, remote, base_name, runner)
+    remote = flow.DEFAULT_REMOTE
+    base_sync = lifecycle.sync_local_base(main_root, remote, base_name, runner, config=config, config_path=config_path)
     if not base_sync.get("ok"):
         return base_sync
     remote_ref = str(base_sync["remote_ref"])
@@ -52,12 +51,8 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     if not ahead:
         return flow.stop("no_branch_commits", f"Branch {branch} has no commits ahead of {base_name}.", rebase_step=rebase_step)
 
-    checks_ok, checks = flow.run_checks(root, config, runner)
-    if not checks_ok:
-        data = flow.stop("checks_failed", "Configured pre-commit checks failed.", checks=checks, rebase_step=rebase_step)
-        return flow.attach_outputs("fast", data)
     if not flow.is_clean_worktree(root, runner):
-        return flow.stop("dirty_after_checks", "Checks left the task worktree dirty; local landing stopped.", checks=checks)
+        return flow.stop("dirty_after_rebase", "Task worktree is dirty after rebase; local landing stopped.")
 
     head = flow.head_sha(root, runner)
     merge = runner(["git", "merge", "--ff-only", branch], cwd=main_root, timeout=120)
@@ -65,15 +60,12 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     if not merge.ok:
         return flow.stop("local_merge_failed", "Could not fast-forward merge the task branch into local base.", merge_step=merge_step)
 
-    post_ok, post_checks = flow.run_checks(main_root, config, runner)
     counts = lifecycle.left_right_count(main_root, remote_ref, base_name, runner)
     common = {
         "action": "fast_landed",
         "base_branch": base_name,
         "branch": branch,
         "head_sha": head,
-        "checks": checks,
-        "post_merge_checks": post_checks,
         "base_sync": base_sync.get("base_sync"),
         "base_ahead_remote": counts["right"],
         "base_behind_remote": counts["left"],
@@ -83,10 +75,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
         "rebase_step": rebase_step,
         "merge_step": merge_step,
     }
-    if not post_ok:
-        data = flow.stop("post_merge_checks_failed", "Post-merge checks failed after local landing.", **common)
-    else:
-        data = {"ok": True, **common}
+    data = {"ok": True, **common}
     return flow.attach_outputs("fast", data)
 
 

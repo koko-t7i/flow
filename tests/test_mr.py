@@ -7,10 +7,17 @@ from helpers import FakeRunner, fail, load_script, ok, repo_flow
 
 
 mr = load_script("mr")
+DEFAULT_CONFIG = """\
+version = 1
+base_branch = "main"
+remote_cli = "gh"
+passphrase = "file:passphrase"
+default_mode = "tree"
+"""
 
 
 class MrCommandTest(unittest.TestCase):
-    def make_repo(self, config_text="base_branch = \"main\"\n"):
+    def make_repo(self, config_text=DEFAULT_CONFIG):
         temp = tempfile.TemporaryDirectory()
         root = Path(temp.name)
         (root / ".codex").mkdir()
@@ -31,19 +38,21 @@ class MrCommandTest(unittest.TestCase):
     def test_current_host_config_wins_without_merging_fallback(self):
         root = self.make_repo(
             """
+version = 1
 base_branch = "main"
-
-[delivery]
-remote_provider = "github"
+remote_cli = "gh"
+passphrase = "file:passphrase"
+default_mode = "tree"
 """
         )
         (root / ".claude").mkdir()
         (root / ".claude" / "localflow.toml").write_text(
             """
+version = 1
 base_branch = "test"
-
-[delivery]
-remote_provider = "gitlab"
+remote_cli = "glab"
+passphrase = "file:passphrase"
+default_mode = "tree"
 """,
             encoding="utf-8",
         )
@@ -52,7 +61,7 @@ remote_provider = "gitlab"
         config, path = repo_flow.load_repo_config(root, "codex", runner)
 
         self.assertEqual(config["base_branch"], "main")
-        self.assertEqual(repo_flow.section(config, "delivery")["remote_provider"], "github")
+        self.assertEqual(config["remote_cli"], "gh")
         self.assertTrue(str(path).endswith(".codex/localflow.toml"))
 
     def test_dirty_worktree_stops_before_create_or_push(self):
@@ -67,17 +76,65 @@ remote_provider = "gitlab"
         self.assertEqual(result["stop_reason"], "dirty_worktree")
         self.assertNotIn(("git", "push", "-u", "origin", "feat/example"), runner.calls)
 
-    def test_provider_inference_supports_github_pr_and_gitlab_mr(self):
+    def test_remote_cli_selects_github_pr_and_gitlab_mr(self):
         self.assertEqual(
-            repo_flow.resolve_provider({}, "git@github.com:koko-t7i/example.git")["provider"],
+            repo_flow.resolve_provider({"remote_cli": "gh"}, "git@github.com:koko-t7i/example.git")["provider"],
             "github",
         )
         self.assertEqual(
-            repo_flow.resolve_provider({}, "git@gitlab.com:koko-t7i/example.git")["provider"],
+            repo_flow.resolve_provider({"remote_cli": "glab"}, "git@gitlab.com:koko-t7i/example.git")["provider"],
             "gitlab",
         )
+        self.assertEqual(repo_flow.resolve_provider({"remote_cli": "none"}, None)["stop_reason"], "review_cli_disabled")
         self.assertEqual(repo_flow.review_view_command("github", "feat/example")[:3], ["gh", "pr", "view"])
         self.assertEqual(repo_flow.review_view_command("gitlab", "feat/example")[:3], ["glab", "mr", "view"])
+
+    def test_old_schema_stops_as_outdated(self):
+        root = self.make_repo('base_branch = "main"\n\n[delivery]\nremote_provider = "github"\n')
+        runner = FakeRunner(self.base_responses(root))
+
+        result = mr.run(root, "codex", runner)
+
+        self.assertEqual(result["stop_reason"], "config_schema_outdated")
+        self.assertNotIn(("git", "branch", "--show-current"), runner.calls)
+
+    def test_remote_cli_none_stops_review_path(self):
+        root = self.make_repo(
+            """\
+version = 1
+base_branch = "main"
+remote_cli = "none"
+passphrase = "file:passphrase"
+default_mode = "fast"
+"""
+        )
+        runner = FakeRunner(self.base_responses(root))
+
+        result = mr.run(root, "codex", runner)
+
+        self.assertEqual(result["stop_reason"], "review_cli_disabled")
+        self.assertFalse(any(call[:2] == ("git", "push") for call in runner.calls))
+
+    def test_https_push_fallback_does_not_set_url_upstream(self):
+        root = self.make_repo()
+        runner = FakeRunner(
+            {
+                ("git", "push", "-u", "origin", "feat/example"): [fail([], "Permission denied (publickey).")],
+                ("git", "push", "https://github.com/koko-t7i/example.git", "feat/example"): [ok([])],
+            }
+        )
+
+        result = repo_flow.push_branch(
+            root,
+            "origin",
+            "feat/example",
+            "git@github.com:koko-t7i/example.git",
+            runner,
+        )
+
+        self.assertTrue(result.ok)
+        self.assertIn(("git", "push", "-u", "origin", "feat/example"), runner.calls)
+        self.assertIn(("git", "push", "https://github.com/koko-t7i/example.git", "feat/example"), runner.calls)
 
     def test_auto_base_branch_uses_nearest_long_lived_branch(self):
         root = self.make_repo("")
@@ -95,26 +152,16 @@ remote_provider = "gitlab"
 
         self.assertEqual(result, {"name": "test", "ref": "origin/test"})
 
-    def test_provider_inference_uses_cli_auth_for_self_hosted_gitlab(self):
-        root = self.make_repo()
-        runner = FakeRunner(
-            {
-                ("glab", "auth", "status", "--hostname", "git.aurtech.cc"): [ok([])],
-                ("gh", "auth", "status", "--hostname", "git.aurtech.cc"): [fail([])],
-            }
-        )
-
-        result = repo_flow.resolve_provider(
-            {},
-            "https://git.aurtech.cc/w3/rpc-gateway.git",
-            root,
-            runner,
-        )
-
-        self.assertEqual(result["provider"], "gitlab")
-
     def test_self_hosted_gitlab_mr_returns_status_without_duplicate_create(self):
-        root = self.make_repo()
+        root = self.make_repo(
+            """\
+version = 1
+base_branch = "main"
+remote_cli = "glab"
+passphrase = "file:passphrase"
+default_mode = "tree"
+"""
+        )
         review = {
             "iid": 207,
             "state": "opened",
@@ -127,8 +174,6 @@ remote_provider = "gitlab"
         }
         responses = self.base_responses(root)
         responses[("git", "remote", "get-url", "origin")] = [ok([], "https://git.aurtech.cc/w3/rpc-gateway.git")]
-        responses[("glab", "auth", "status", "--hostname", "git.aurtech.cc")] = [ok([])]
-        responses[("gh", "auth", "status", "--hostname", "git.aurtech.cc")] = [fail([])]
         responses[("glab", "mr", "view", "feat/example", "--output", "json")] = [ok([], json.dumps(review))]
         responses[("git", "rev-parse", "HEAD")] = [ok([], "abc123")]
         runner = FakeRunner(responses)
@@ -144,8 +189,7 @@ remote_provider = "gitlab"
     def test_simple_toml_preserves_escaped_quotes_in_command_arrays(self):
         config = repo_flow.parse_simple_toml(
             """
-[validation]
-pre_commit = [
+commands = [
   "python3 \\"$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py\\" ./localflow",
   "git diff --check",
 ]
@@ -153,7 +197,7 @@ pre_commit = [
         )
 
         self.assertEqual(
-            repo_flow.section(config, "validation")["pre_commit"],
+            config["commands"],
             [
                 'python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow',
                 "git diff --check",
@@ -198,15 +242,8 @@ pre_commit = [
         self.assertFalse(any(call[:3] == ("gh", "pr", "create") for call in runner.calls))
         self.assertFalse(any(call[:2] == ("git", "push") for call in runner.calls))
 
-    def test_existing_pr_with_new_head_runs_checks_and_pushes(self):
-        root = self.make_repo(
-            """
-base_branch = "main"
-
-[validation]
-pre_commit = ["git diff --check"]
-"""
-        )
+    def test_existing_pr_with_new_head_pushes_without_configured_checks(self):
+        root = self.make_repo()
         old_review = {
             "number": 7,
             "state": "OPEN",
@@ -224,7 +261,6 @@ pre_commit = ["git diff --check"]
         )
         responses[view_key] = [ok([], json.dumps(old_review)), ok([], json.dumps(old_review))]
         responses[("git", "rev-parse", "HEAD")] = [ok([], "def456")]
-        responses[("shell", "git diff --check")] = [ok([])]
         responses[("git", "push", "-u", "origin", "feat/example")] = [ok([])]
         runner = FakeRunner(responses)
 
@@ -233,7 +269,6 @@ pre_commit = ["git diff --check"]
         self.assertTrue(result["ok"])
         self.assertEqual(result["action"], "updated")
         self.assertEqual(result["head_sha"], "def456")
-        self.assertIn(("shell", "git diff --check"), runner.calls)
         self.assertIn(("git", "push", "-u", "origin", "feat/example"), runner.calls)
         self.assertFalse(any(call[:3] == ("gh", "pr", "create") for call in runner.calls))
 
@@ -275,7 +310,7 @@ GH_VIEW_FIELDS = "number,state,url,headRefName,baseRefName,headRefOid,mergeState
 
 
 class SnapshotModeTest(unittest.TestCase):
-    def make_repo(self, config_text='base_branch = "main"\n'):
+    def make_repo(self, config_text=DEFAULT_CONFIG):
         temp = tempfile.TemporaryDirectory()
         root = Path(temp.name)
         (root / ".codex").mkdir()
@@ -424,58 +459,6 @@ class SnapshotModeTest(unittest.TestCase):
         )
         # Existing review -> do not create a duplicate.
         self.assertFalse(any(c[:3] == ("gh", "pr", "create") for c in runner.calls))
-
-    def test_snapshot_with_version_bump_injects_blob(self):
-        root = self.make_repo(
-            'base_branch = "main"\n\n[version_policy]\nenabled = true\nfiles = ["plugin.json"]\n'
-        )
-        (root / "plugin.json").write_text('{"name": "x", "version": "0.9.0"}\n', encoding="utf-8")
-        responses = self.snapshot_responses(root)
-        responses[("git", "update-index", "--add", "--cacheinfo", "100644,blobsha,plugin.json")] = [ok([])]
-        runner = FakeRunner(responses)
-
-        def dynamic_runner(args, *, cwd, timeout=30, shell=False, env=None):
-            if isinstance(args, list) and args[:2] == ["git", "hash-object"]:
-                runner.calls.append(("git", "hash-object"))
-                return ok([], "blobsha")
-            if isinstance(args, list) and args[:3] == ["gh", "pr", "create"]:
-                runner.calls.append(tuple(args))
-                return ok(args)
-            return runner(args, cwd=cwd, timeout=timeout, shell=shell, env=env)
-
-        result = mr.run_snapshot(
-            root,
-            "codex",
-            branch="feat/live-preview",
-            paths=["src/Preview.tsx"],
-            message="feat: add live preview",
-            bump="minor",
-            runner=dynamic_runner,
-        )
-
-        self.assertTrue(result["ok"])
-        self.assertEqual(result["version"]["decision"], "bumped")
-        self.assertEqual(result["version"]["to"], "0.10.0")
-        self.assertIn(
-            ("git", "update-index", "--add", "--cacheinfo", "100644,blobsha,plugin.json"),
-            runner.calls,
-        )
-
-    def test_snapshot_version_bump_requires_enabled_policy(self):
-        root = self.make_repo()  # no [version_policy]
-        runner = FakeRunner(self.snapshot_responses(root))
-
-        result = mr.run_snapshot(
-            root,
-            "codex",
-            branch="feat/live-preview",
-            paths=["src/Preview.tsx"],
-            message="feat: add live preview",
-            bump="minor",
-            runner=runner,
-        )
-
-        self.assertEqual(result["stop_reason"], "version_policy_disabled")
 
     def test_snapshot_stops_when_base_fetch_fails(self):
         # An auto-resolved base must refresh from the remote; a failed fetch must stop

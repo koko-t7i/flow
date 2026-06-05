@@ -31,3 +31,7 @@ env/
 # Tool caches
 .tox/
 .nox/
+
+# Localflow local secrets
+.codex/passphrase
+.claude/passphrase
