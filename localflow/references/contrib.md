@@ -76,7 +76,8 @@ subject or when two commits in the review share the same subject.
 Recover push authentication safely:
 
 - inspect remote URL, upstream, and exact error
-- for SSH, check agent state and loaded keys in the same shell
+- for SSH passphrase prompts, retry only through the configured ignored passphrase file
+- when the passphrase file is unavailable, use the configured `gh`/`glab` path or HTTPS fallback
 - never print, store, script, or commit secrets
 - use HTTPS fallback only when credentials are already configured or explicitly authorized
 
