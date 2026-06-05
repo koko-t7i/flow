@@ -153,6 +153,9 @@ class CommitModeTest(unittest.TestCase):
             ("git", "rev-parse", "--verify", "--quiet", "main"): [ok([])],
             ("git", "rev-list", "--count", "main..HEAD"): [ok([], "1")],
             ("git", "remote", "get-url", "origin"): [ok([], "git@github.com:koko-t7i/example.git")],
+            ("git", "log", "--reverse", "--format=%H%x00%s", "main..HEAD"): [
+                ok([], "abc123\x00feat: add live preview")
+            ],
             view_key: [fail([]), ok([], json.dumps(view or {"state": "OPEN", "url": "https://github.com/x/pull/1"}))],
             ("git", "push", "-u", "origin", "feat/example"): [ok([])],
             ("git", "log", "-1", "--pretty=%s"): [ok([], "feat: add live preview")],

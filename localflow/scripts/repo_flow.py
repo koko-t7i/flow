@@ -356,6 +356,74 @@ def commit_lines(cwd: Path, base_ref: str, runner=run_command) -> list[str]:
     return result.stdout.splitlines()
 
 
+def commit_subject_records(
+    cwd: Path,
+    base_ref: str,
+    runner=run_command,
+    *,
+    head_ref: str = "HEAD",
+) -> list[dict[str, str]] | None:
+    result = runner(["git", "log", "--reverse", "--format=%H%x00%s", f"{base_ref}..{head_ref}"], cwd=cwd)
+    if not result.ok:
+        return None
+    records: list[dict[str, str]] = []
+    for line in result.stdout.splitlines():
+        if "\x00" in line:
+            sha, subject = line.split("\x00", 1)
+        else:
+            sha, subject = "", line
+        subject = subject.strip()
+        if subject:
+            records.append({"sha": sha.strip(), "subject": subject})
+    return records
+
+
+def validate_review_commit_subjects(
+    cwd: Path,
+    base_ref: str,
+    runner=run_command,
+    *,
+    head_ref: str = "HEAD",
+    extra_subject: str | None = None,
+) -> dict[str, object]:
+    records = commit_subject_records(cwd, base_ref, runner, head_ref=head_ref)
+    if records is None:
+        return stop("commit_subjects_unavailable", "Could not inspect commit subjects before review push.")
+
+    seen: dict[str, str] = {}
+    for record in records:
+        subject = record["subject"]
+        error = validate_commit_subject(subject)
+        if error:
+            sha = record.get("sha")
+            prefix = f"{sha[:9]} " if sha else ""
+            return stop("invalid_commit_message", f"{prefix}{error}: {subject}")
+
+        previous = seen.get(subject)
+        if previous:
+            current = record.get("sha", "")
+            detail = f"{previous[:9]} and {current[:9]} " if current else ""
+            return stop(
+                "duplicate_commit_subject",
+                f"Duplicate commit subject in review branch ({detail}): {subject}",
+            )
+        seen[subject] = record.get("sha", "")
+
+    if extra_subject:
+        subject = extra_subject.strip()
+        error = validate_commit_subject(subject)
+        if error:
+            return stop("invalid_commit_message", f"{error}: {subject}")
+        previous = seen.get(subject)
+        if previous:
+            return stop(
+                "duplicate_commit_subject",
+                f"Duplicate commit subject in review branch ({previous[:9]} and pending): {subject}",
+            )
+
+    return {"ok": True, "commits": records}
+
+
 def build_review_body(branch: str, base: str, commits: list[str], checks: list[dict[str, object]] | None = None) -> str:
     lines = [
         "## Summary",
