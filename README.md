@@ -184,7 +184,7 @@ ln -s "$PWD/localflow" "$HOME/.codex/skills/localflow"
 Validate the skill when the Codex system validator is available:
 
 ```bash
-python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
+uv run python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
 ```
 
 ### Pi
@@ -200,16 +200,16 @@ ln -s "$PWD/localflow" "$HOME/.pi/skills/localflow"
 Run the full test suite:
 
 ```bash
-python3 -m unittest discover -s tests
+uv run python -m unittest discover -s tests
 ```
 
 Run the standard validation set used before delivery:
 
 ```bash
-python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
+uv run python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
 claude plugin validate .
 git diff --check
-python3 -m unittest discover -s tests
+uv run python -m unittest discover -s tests
 ```
 
 Refresh the local environment capability snapshot:

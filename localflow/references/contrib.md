@@ -123,7 +123,7 @@ Avoid defaulting to `glab repo view`, `glab mr create --help`, repeated `glab au
 glab api '/projects/:id/pipelines?sha=<sha>'
 ```
 
-If both checks show no pipeline, report that no pipeline was created instead of polling. If JSON filtering is needed, prefer `python3`; do not assume `jq` or `python` exist.
+If both checks show no pipeline, report that no pipeline was created instead of polling. If JSON filtering is needed, prefer `uv run python`; do not assume `jq` exists.
 
 ## Landing and Remote Cleanup
 

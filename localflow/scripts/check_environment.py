@@ -314,8 +314,6 @@ def build_snapshot(cwd: Path) -> dict[str, object]:
             "node": probe_command("node", ["--version"]),
             "npm": probe_npm_like("npm"),
             "pnpm": probe_npm_like("pnpm"),
-            "python": probe_command("python", ["--version"]),
-            "python3": probe_command("python3", ["--version"]),
             "uv": probe_command("uv", ["--version"]),
             "docker": probe_docker(),
         },
