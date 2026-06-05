@@ -56,7 +56,7 @@ Use the recorded failure kind:
 - `ssh_agent_missing`: no usable `ssh-agent` is available in the shell.
 - `remote_unreachable`: host or network failure, not an auth decision.
 
-When SSH is blocked by publickey or passphrase state and `gh` or `glab` is authenticated, use that CLI for remote API operations. For fetch/push recovery, retry with the configured ignored passphrase file when present; otherwise prefer a temporary HTTPS/token-backed fallback over rewriting `origin`.
+When SSH is blocked by publickey or passphrase state, use the configured ignored passphrase file for git retry when present. If no usable passphrase file is configured, use authenticated `gh`/`glab` for remote API operations and a temporary HTTPS/token-backed fallback for git operations rather than rewriting `origin`.
 
 Do not permanently change `origin` from SSH to HTTPS unless the user explicitly asks.
 
@@ -66,14 +66,9 @@ It is safe to discover public key files such as `~/.ssh/id_ed25519.pub` and `~/.
 
 Never read, print, store, upload, or script private key contents. Do not print,
 commit, upload, or include passphrases in logs or snapshots. A passphrase may be
-read only from the repository config's ignored same-directory `passphrase` file;
-if that file is missing or tracked, stop and ask the user to unlock the key or
-fix the local secret file, for example:
-
-```bash
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_rsa
-```
+read only from the repository config's ignored same-directory `passphrase` file.
+If that file is missing, tracked, or otherwise unusable, use the configured
+`gh`/`glab` path or HTTPS fallback.
 
 Uploading a public key to GitHub or GitLab changes account security state. Do it only after explicit user approval.
 

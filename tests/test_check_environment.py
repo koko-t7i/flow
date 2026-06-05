@@ -81,6 +81,28 @@ class CheckEnvironmentTest(unittest.TestCase):
         self.assertIn("Sudo OK", markdown)
         self.assertIn("| docker | yes | yes | n/a | no | yes | Docker version 29.2.0 |", markdown)
 
+    def test_render_markdown_prefers_configured_passphrase_or_cli_fallback(self):
+        module = load_module()
+
+        markdown = module.render_markdown(
+            {
+                "generated_at": "2026-05-26T00:00:00+00:00",
+                "cwd": "/tmp/repo",
+                "tools": {
+                    "git": {
+                        "origin": {"host": "github.com", "protocol": "ssh"},
+                        "origin_check": {"can_fetch": False, "failure_kind": "ssh_interactive_passphrase_required"},
+                        "ssh_agent": {"available": False},
+                    }
+                },
+            }
+        )
+
+        self.assertIn("configured ignored passphrase file", markdown)
+        self.assertIn("authenticated `gh`/`glab`", markdown)
+        self.assertNotIn("ssh-add", markdown)
+        self.assertNotIn("unlock", markdown.lower())
+
     def test_default_cache_dir_is_neutral(self):
         module = load_module()
 
