@@ -690,10 +690,13 @@ def write_outputs(name: str, data: dict[str, object]) -> tuple[Path, Path]:
 
 
 def attach_outputs(name: str, data: dict[str, object]) -> dict[str, object]:
-    if "json_path" in data:
+    expected_json = str(CACHE_DIR / f"{name}.json")
+    expected_md = str(CACHE_DIR / f"{name}.md")
+    if data.get("json_path") == expected_json and data.get("markdown_path") == expected_md:
         return data
-    json_path, md_path = write_outputs(name, data)
-    return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+    payload = {key: value for key, value in data.items() if key not in {"json_path", "markdown_path"}}
+    json_path, md_path = write_outputs(name, payload)
+    return {**payload, "json_path": str(json_path), "markdown_path": str(md_path)}
 
 
 def render_markdown(name: str, data: dict[str, object]) -> str:

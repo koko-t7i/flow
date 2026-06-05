@@ -171,6 +171,8 @@ class CommitModeTest(unittest.TestCase):
         self.assertEqual(result["action"], "created")
         # The commit happened first, then the review was opened.
         self.assertEqual(result["commit"]["action"], "committed")
+        self.assertTrue(result["json_path"].endswith("commit.json"))
+        self.assertTrue(result["markdown_path"].endswith("commit.md"))
         self.assertIn(("git", "commit", "-F"), runner.calls)
         self.assertIn(("git", "push", "-u", "origin", "feat/example"), runner.calls)
         self.assertTrue(any(c[:3] == ("gh", "pr", "create") for c in runner.calls))
