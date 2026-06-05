@@ -1,6 +1,6 @@
 ---
 description: Run a localflow subcommand or the full local repo workflow
-argument-hint: "[check|mr|commit|clean] (or describe the change to deliver)"
+argument-hint: "[check|tree|fast|mr|commit|clean] (or describe the change to deliver)"
 ---
 
 # Localflow
@@ -10,6 +10,10 @@ Use the `localflow:localflow` skill for this request. If the Skill tool is avail
 If the first argument is `check`, treat it as the `localflow check` subcommand: run only the environment capability snapshot, report results, and stop without editing the repository.
 
 If the first argument is `mr`, treat it as the `localflow mr` subcommand: run only the deterministic MR/PR create-or-status script, report results, and stop without implementing, committing, merging, or cleaning up. For a shared checkout that must not be disturbed (e.g. a single combined live preview while multiple agents edit the same directory and branch), use the script's `--snapshot --branch <type/slug> --paths <files...> --message <...>` mode: it captures the named files into a side branch without touching the working tree, index, or `HEAD`, then opens or updates the review.
+
+If the first argument is `tree`, treat it as the tree mode workflow: use an isolated task worktree and task branch, commit scoped changes, and deliver through MR/PR review. `tree` does not land into the local long-lived branch and does not clean worktrees or branches.
+
+If the first argument is `fast`, treat it as the `localflow fast` subcommand after the task branch has already been committed in an isolated worktree: run only the deterministic local landing script. It rebases the clean task branch onto the local base, fast-forward merges it into the local long-lived branch, reports local ahead/behind remote state, and stops without pushing, opening MR/PR, or cleaning worktrees/branches.
 
 If the first argument is `commit`, treat it as the `localflow commit` subcommand: run only the deterministic commit script, which stages only the named `--paths`, writes an English Conventional Commit on the current task branch, and (with `--mr`) opens the review in one step. Use this in the default isolated-worktree flow; it refuses to run on a long-lived or detached branch and never uses `git add .`. For a shared checkout where multiple agents work the same branch, prefer `mr --snapshot --paths <files...>` instead.
 

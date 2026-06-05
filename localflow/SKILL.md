@@ -1,6 +1,6 @@
 ---
 name: localflow
-description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, temporary git worktree cleanup, missing localflow config that must be confirmed and written, or when the user invokes a localflow subcommand (`check`, `mr`, `commit`, or `clean`). Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change or an explicit subcommand.
+description: Use when a local repository task involves code changes that need validation, dirty worktree handling, task branch selection, commit/push delivery, push authentication failures, temporary git worktree cleanup, missing localflow config that must be confirmed and written, or when the user invokes a localflow subcommand (`check`, `tree`, `fast`, `mr`, `commit`, or `clean`). Do not use for test-only explanation or one-off command execution unless it is part of delivering a code change or an explicit subcommand.
 ---
 
 # Localflow
@@ -76,6 +76,34 @@ This command creates or inspects the MR/PR for the current already-committed tas
 
 2. Report the Markdown snapshot path, JSON snapshot path, MR/PR URL, action, and stop reason when present. Do not hand-write fallback `git`, `gh`, or `glab` commands unless the script reports a missing script path.
 
+### `localflow tree`
+
+Use when the user invokes `/localflow tree` in Claude Code or `$localflow tree` in Codex, or asks for the normal isolated-worktree review flow.
+
+This is the default tree mode: task branch + isolated worktree + commit + MR/PR review. It never lands into the local long-lived branch and never cleans worktrees or branches. Read [references/modes/tree.md](references/modes/tree.md), then continue through the normal workflow using `localflow commit`, `localflow mr`, and later `localflow clean` after the MR/PR is merged.
+
+### `localflow fast`
+
+Use when the user invokes `/localflow fast` in Claude Code or `$localflow fast` in Codex after a task branch has already been committed in an isolated worktree.
+
+This command lands the clean task branch into the local long-lived branch by rebase + fast-forward merge. It does not create an MR/PR, does not push to remote, and does not clean task worktrees or branches.
+
+1. Read [references/modes/fast.md](references/modes/fast.md).
+2. Run the deterministic fast script for the user's current working directory. Probe the candidates below in order and use the first one that resolves:
+
+   ```bash
+   # 1. Repo-local copy when cwd is inside the localflow repo.
+   uv run python ./localflow/scripts/fast.py --cwd "$PWD" --host codex
+
+   # 2. Claude Code plugin install (prefer $CLAUDE_PLUGIN_ROOT when set).
+   uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/localflow/scripts/fast.py" --cwd "$PWD" --host claude
+
+   # 3. Codex skill install.
+   uv run python "$HOME/.codex/skills/localflow/scripts/fast.py" --cwd "$PWD" --host codex
+   ```
+
+3. Report the Markdown snapshot path, JSON snapshot path, base branch, task branch, landed SHA, post-merge check result, local base ahead/behind remote counts, and that cleanup was not run. Do not manually delete worktrees or branches after `fast`; use `localflow clean` when cleanup is desired.
+
 #### Snapshot path (shared checkout / live preview)
 
 Use `--snapshot` when work is uncommitted on a shared checkout that must not be disturbed — for example a frontend dev server giving a single combined live preview while multiple agents edit the same directory and branch. The default `mr` flow stops on a dirty worktree or a long-lived branch; snapshot mode bypasses both by capturing the named files into a side branch through a throwaway index, **without touching the working tree, the real index, or `HEAD`**. The dev server keeps running and no branch is switched.
@@ -147,7 +175,7 @@ This command only cleans already-landed delivery units. It never merges. On a ta
 1. **Clarify requirement.** Restate the task, acceptance criteria, scope, non-goals, and blockers. Read [references/clarify.md](references/clarify.md).
 2. **Check environment capability.** Read or refresh the local CLI/auth/permission snapshot before assuming `git`, `gh`, `glab`, `docker`, package managers, or Python aliases work. Read [references/environment.md](references/environment.md).
 3. **Read repository config.** If present, read the current-host config first: Codex uses `.codex/localflow.toml`; Claude Code uses `.claude/localflow.toml`. If the current-host file is missing, fall back to the other host's file. User instructions override config; config overrides defaults. If both host files exist, do not merge them. **If neither host's config file exists** (a subcommand result shows `config_path: null`), do not silently rely on heuristics: before the first delivery action, confirm `base_branch` / `delivery_mode` / `remote_provider` (only when ambiguous) / `remote` / `draft` / `version_policy` with the user, then write `.<host>/localflow.toml`. See [references/config.md](references/config.md).
-4. **Resolve repository workflow.** Determine the long-lived base branch, delivery mode, task branch, and worktree lifecycle. Default to an isolated task worktree and do not edit the original checkout. Read [references/git.md](references/git.md).
+4. **Resolve repository workflow.** Determine the long-lived base branch, delivery mode, task branch, worktree lifecycle, and whether this is `tree` review mode or `fast` local-integration mode. Default to `tree` with an isolated task worktree and do not edit the original checkout. Read [references/git.md](references/git.md), [references/modes/tree.md](references/modes/tree.md), and [references/modes/fast.md](references/modes/fast.md) as needed.
 5. **Implement and verify.** Use task-appropriate checks, fresh evidence, and review gates. Use TDD only when it fits code behavior work. Read [references/verify.md](references/verify.md).
 6. **Commit.** Stage only current-task files and write a concise English Conventional Commit message. In the default isolated worktree, the deterministic `localflow commit` subcommand does this (add `--mr` to commit and open the review in one step); on a shared checkout where agents share a branch, skip the commit step and deliver with `localflow mr --snapshot --paths …` instead. Read [references/contrib.md](references/contrib.md).
 7. **Deliver.** Use the repository delivery mode: Local Landing, Remote Review, or Push Only. Read [references/contrib.md](references/contrib.md).
@@ -161,6 +189,8 @@ This command only cleans already-landed delivery units. It never merges. On a ta
 - `verify.md` owns task acceptance evidence and review gates.
 - `contrib.md` owns commit, push, remote branch, MR/PR delivery decisions, and deterministic `commit`/`mr`/`clean` subcommands.
 - `config.md` owns the config schema and the no-config confirm-and-write gate.
+- `modes/tree.md` owns the isolated-worktree remote-review flow.
+- `modes/fast.md` owns the isolated-worktree local-integration flow.
 
 ## Repository Config
 

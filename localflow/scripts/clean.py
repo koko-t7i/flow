@@ -13,36 +13,20 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
+import lifecycle
 import repo_flow as flow
 
 
 def worktree_state(cwd: Path, runner=flow.run_command) -> dict[str, object]:
-    root = flow.repo_root(cwd, runner)
-    git_dir = runner(["git", "rev-parse", "--git-dir"], cwd=root)
-    common_dir = runner(["git", "rev-parse", "--git-common-dir"], cwd=root)
-    if not git_dir.ok or not common_dir.ok:
-        return flow.stop("git_dir_unknown", "Could not inspect git worktree metadata.")
-    git_path = (root / git_dir.stdout).resolve() if not Path(git_dir.stdout).is_absolute() else Path(git_dir.stdout).resolve()
-    common_path = (
-        (root / common_dir.stdout).resolve()
-        if not Path(common_dir.stdout).is_absolute()
-        else Path(common_dir.stdout).resolve()
-    )
-    linked = git_path != common_path
-    return {"ok": True, "root": root, "git_dir": git_path, "common_dir": common_path, "linked": linked}
+    return lifecycle.worktree_state(cwd, runner)
 
 
 def owned_worktree(path: Path) -> bool:
-    parts = path.parts
-    home_superpowers = Path.home() / ".config" / "superpowers" / "worktrees"
-    return path.is_relative_to(home_superpowers) or ".worktrees" in parts or "worktrees" in parts
+    return lifecycle.owned_worktree(path)
 
 
 def main_checkout_root(common_dir: Path, runner=flow.run_command) -> Path:
-    result = runner(["git", "rev-parse", "--show-toplevel"], cwd=common_dir.parent)
-    if not result.ok:
-        raise RuntimeError("could not resolve main checkout")
-    return Path(result.stdout)
+    return lifecycle.main_checkout_root(common_dir, runner)
 
 
 def cleanup_local(

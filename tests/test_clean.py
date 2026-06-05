@@ -120,6 +120,30 @@ cleanup_remote_branch = "auto"
         self.assertEqual(result["stop_reason"], "review_not_merged")
         self.assertFalse(any(call[:3] in {("git", "branch", "-d"), ("git", "branch", "-D")} for call in runner.calls))
 
+    def test_local_landing_cleans_only_when_clean_is_invoked(self):
+        root = self.make_repo()
+        responses = self.base_responses(root)
+        responses[self.pr_view_key()] = [fail([])]
+        responses[("git", "merge-base", "--is-ancestor", "HEAD", "main")] = [ok([])]
+        responses[("git", "push", "origin", "--delete", "feat/example")] = [
+            fail([], "remote ref does not exist")
+        ]
+        responses[("git", "branch", "-dr", "origin/feat/example")] = [ok([])]
+        responses[("git", "rev-parse", "--git-dir")] = [ok([], ".git")]
+        responses[("git", "rev-parse", "--git-common-dir")] = [ok([], ".git")]
+        responses[("git", "checkout", "main")] = [ok([])]
+        responses[("git", "branch", "-d", "feat/example")] = [ok([])]
+        runner = FakeRunner(responses)
+
+        result = clean.run(root, "codex", runner)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["action"], "cleaned")
+        self.assertEqual(result["state"], "local_landed")
+        self.assertEqual(result["landed_by"], "local_landing")
+        self.assertIn(("git", "branch", "-d", "feat/example"), runner.calls)
+        self.assertNotIn(("git", "branch", "-D", "feat/example"), runner.calls)
+
     def test_merged_pr_cleans_normal_checkout(self):
         root = self.make_repo()
         responses = self.base_responses(root)

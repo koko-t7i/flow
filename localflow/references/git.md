@@ -12,6 +12,9 @@ If repository config sets `base_branch`, use it after confirming the branch exis
 
 Do not implement directly on the long-lived branch or original checkout. Use it only as the clean base for task worktrees and as the final local resting branch after cleanup.
 
+Use `modes/tree.md` for the isolated-worktree remote-review flow. Use
+`modes/fast.md` for the isolated-worktree local-integration flow.
+
 ## Long-Lived Branch Destructive Guard
 
 When the current branch is `main`, `test`, or `dev`, do not run destructive operations unless the user has explicitly instructed or confirmed that exact operation.
@@ -73,7 +76,9 @@ Track lifecycle provenance:
 
 Clean up local task branch and worktree only after the work has landed or the user explicitly aborts.
 
-For Local Landing, cleanup after merging the task branch into the selected long-lived branch and rerunning required post-merge checks.
+For Local Landing, cleanup is still explicit: after merging the task branch into
+the selected long-lived branch and rerunning required post-merge checks, keep
+the task worktree and branch until the user invokes `localflow clean`.
 
 For Remote Review, keep the worktree and local task branch until the MR/PR is merged. Use the same worktree for review fixes, CI failures, and conflict resolution.
 
@@ -84,6 +89,9 @@ After landing:
 - remove the task worktree if this workflow created it
 - delete the local task branch
 - run `git worktree prune` only when stale entries are detected or after failed/aborted worktree operations
+
+Only `localflow clean` performs these cleanup actions. `tree`, `fast`, `commit`,
+and `mr` must not delete task worktrees or branches.
 
 Do not remove a worktree that is harness-owned, contains unrelated user changes, or was not created for this delivery unit.
 
