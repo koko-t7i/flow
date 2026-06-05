@@ -77,9 +77,8 @@ Uploading a public key to GitHub or GitLab changes account security state. Do it
 
 ## Tool Notes
 
-- `python` and `python3` are independent; use the one the snapshot marks installed.
 - Docker requires both the client and daemon permission. `docker --version` alone does not prove container commands will work.
 - Docker sudo probing uses `sudo -n docker info` only. It records passwordless sudo capability without prompting for a password.
-- Run the environment snapshot with `uv run`; the script also records whether `uv`, `python`, and `python3` are available.
+- Run the environment snapshot with `uv run`; the script also records whether `uv` is available.
 - `npm`/`pnpm` registry access and npm publish/auth state are separate from install/version checks.
 - `gh` and `glab` auth status proves API access only when paired with a read-only API call such as `gh api user` or `glab api user`.

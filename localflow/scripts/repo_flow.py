@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Shared deterministic helpers for localflow delivery scripts."""
 
 from __future__ import annotations
