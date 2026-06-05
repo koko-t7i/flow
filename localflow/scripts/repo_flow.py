@@ -691,9 +691,25 @@ def write_outputs(name: str, data: dict[str, object]) -> tuple[Path, Path]:
 
 def render_markdown(name: str, data: dict[str, object]) -> str:
     lines = [f"# Localflow {name}", "", f"- Generated: `{datetime.now(timezone.utc).isoformat()}`"]
-    for key in ("ok", "action", "provider", "base_branch", "branch", "url", "state", "head_sha", "stop_reason", "message"):
+    for key in (
+        "ok",
+        "action",
+        "provider",
+        "base_branch",
+        "branch",
+        "url",
+        "state",
+        "head_sha",
+        "base_ahead_remote",
+        "base_behind_remote",
+        "cleanup",
+        "stop_reason",
+        "message",
+    ):
         if key in data and data[key] is not None:
             lines.append(f"- {key}: `{data[key]}`")
+    if data.get("cleanup_hint"):
+        lines.append(f"- cleanup_hint: `{data['cleanup_hint']}`")
     if isinstance(data.get("version"), dict):
         version = data["version"]  # type: ignore[index]
         if version.get("decision") == "bumped":
@@ -718,6 +734,22 @@ def render_markdown(name: str, data: dict[str, object]) -> str:
 
 
 def print_summary(data: dict[str, object]) -> None:
-    for key in ("ok", "action", "provider", "base_branch", "branch", "url", "state", "head_sha", "stop_reason", "message"):
+    for key in (
+        "ok",
+        "action",
+        "provider",
+        "base_branch",
+        "branch",
+        "url",
+        "state",
+        "head_sha",
+        "base_ahead_remote",
+        "base_behind_remote",
+        "cleanup",
+        "stop_reason",
+        "message",
+    ):
         if key in data and data[key] is not None:
             print(f"{key}: {data[key]}")
+    if data.get("cleanup_hint"):
+        print(f"cleanup_hint: {data['cleanup_hint']}")

@@ -115,7 +115,10 @@ After install, invoke the slash command:
 
 ```text
 /localflow check
+/localflow tree
+/localflow fast
 /localflow mr
+/localflow commit
 /localflow clean
 /localflow <describe the change to deliver>
 ```
@@ -132,13 +135,23 @@ After install, invoke the skill:
 
 ```text
 $localflow check
+$localflow tree
+$localflow fast
 $localflow mr
+$localflow commit
 $localflow clean
 $localflow <describe the change to deliver>
 ```
 
-`localflow mr` creates or inspects the current branch review request: GitHub
-repositories get a PR, GitLab repositories get an MR. `localflow clean` only
-cleans already-landed delivery units. From a task branch it cleans that branch;
-from a long-lived branch it scans safe leftovers and skips anything still
-unmerged, dirty, or not owned by localflow.
+`localflow tree` is the default isolated-worktree review mode: develop on a
+task branch, commit, and deliver through MR/PR review. `localflow fast` is the
+isolated-worktree local-integration mode: after the task branch is committed, it
+rebases and fast-forward lands that branch into the local long-lived branch
+without pushing, opening review, or cleaning. `localflow mr` creates or inspects
+the current branch review request: GitHub repositories get a PR, GitLab
+repositories get an MR.
+
+`localflow clean` is the only cleanup command. It only cleans already-landed
+delivery units. From a task branch it cleans that branch; from a long-lived
+branch it scans safe leftovers and skips anything still unmerged, dirty, or not
+owned by localflow.

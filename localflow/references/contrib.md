@@ -58,6 +58,10 @@ If repository config sets `delivery_mode`, use it unless the user explicitly req
 
 MR/PR creation is automatic in Remote Review mode. MR/PR merge always requires explicit user approval after review.
 
+`tree` mode is the normal Remote Review workflow. `fast` mode is a Local
+Landing workflow for a committed isolated worktree; it does not push, create a
+review request, or clean worktrees/branches.
+
 ## Push and MR/PR
 
 Before push, confirm branch name, commit message, current-task-only commits, check results, and clean staged state.
@@ -85,6 +89,20 @@ uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex
 ```
 
 The script validates that the current branch is a clean task branch with commits ahead of the base branch, runs configured `pre_commit` checks, pushes the branch, and creates or reports the existing review request. It never commits, merges, or cleans up.
+
+Use `localflow fast` when the user wants to land a committed isolated task
+worktree into the local long-lived branch without remote review:
+
+```bash
+uv run python ./localflow/scripts/fast.py --cwd "$PWD" --host codex
+```
+
+The script refuses long-lived branches, detached HEADs, dirty task worktrees,
+non-linked worktrees, task branches without commits, rebase conflicts, and
+diverged local/remote base branches. It fetches the base, fast-forwards the
+local base when possible, rebases the task branch, runs configured checks,
+fast-forward merges into the local base, runs post-merge checks, and reports
+local base ahead/behind remote counts. It never pushes, opens review, or cleans.
 
 For a shared checkout that must stay live (one combined frontend preview, multiple agents on one directory and branch), use the snapshot mode, which bypasses the dirty-worktree and long-lived-branch guards on purpose:
 
@@ -135,6 +153,10 @@ If both checks show no pipeline, report that no pipeline was created instead of 
 ## Landing and Remote Cleanup
 
 In Local Landing mode, merge into the selected long-lived branch after verification and review gate pass. Run required post-merge checks before cleanup.
+
+`localflow fast` is the deterministic Local Landing entrypoint. It leaves the
+task branch and worktree in place; use `localflow clean` later if cleanup is
+desired.
 
 In Remote Review mode, merge only after the user explicitly approves. After merge, delete the remote task branch unless the platform already deleted it or the user says to keep it. Do not add a remote branch cleanup check when the platform confirms source-branch removal; inspect only when cleanup state is unclear.
 
