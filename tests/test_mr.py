@@ -115,6 +115,27 @@ default_mode = "fast"
         self.assertEqual(result["stop_reason"], "review_cli_disabled")
         self.assertFalse(any(call[:2] == ("git", "push") for call in runner.calls))
 
+    def test_https_push_fallback_does_not_set_url_upstream(self):
+        root = self.make_repo()
+        runner = FakeRunner(
+            {
+                ("git", "push", "-u", "origin", "feat/example"): [fail([], "Permission denied (publickey).")],
+                ("git", "push", "https://github.com/koko-t7i/example.git", "feat/example"): [ok([])],
+            }
+        )
+
+        result = repo_flow.push_branch(
+            root,
+            "origin",
+            "feat/example",
+            "git@github.com:koko-t7i/example.git",
+            runner,
+        )
+
+        self.assertTrue(result.ok)
+        self.assertIn(("git", "push", "-u", "origin", "feat/example"), runner.calls)
+        self.assertIn(("git", "push", "https://github.com/koko-t7i/example.git", "feat/example"), runner.calls)
+
     def test_auto_base_branch_uses_nearest_long_lived_branch(self):
         root = self.make_repo("")
         responses = {

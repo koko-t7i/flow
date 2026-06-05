@@ -475,7 +475,7 @@ def push_branch(
         return result
     fallback = https_remote_url(url)
     if fallback and fallback != url:
-        fallback_result = runner(["git", "push", "-u", fallback, branch], cwd=cwd, timeout=120)
+        fallback_result = runner(["git", "push", fallback, branch], cwd=cwd, timeout=120)
         if fallback_result.ok:
             return fallback_result
     return result
