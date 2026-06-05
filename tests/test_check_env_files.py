@@ -1,4 +1,3 @@
-import importlib.util
 import json
 import subprocess
 import sys
@@ -6,16 +5,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from helpers import REPO_ROOT, load_script
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "localflow" / "scripts" / "check_env_files.py"
+
+SCRIPT_PATH = REPO_ROOT / "localflow" / "scripts" / "check_env_files.py"
 
 
 def load_module():
-    spec = importlib.util.spec_from_file_location("check_env_files", SCRIPT_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
+    return load_script("check_env_files")
 
 
 def git(root: Path, *args: str) -> None:

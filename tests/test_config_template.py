@@ -1,26 +1,10 @@
-import importlib.util
 import re
-import sys
 import unittest
-from pathlib import Path
+
+from helpers import REPO_ROOT, repo_flow
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS_DIR = REPO_ROOT / "localflow" / "scripts"
 CONFIG_DOC = REPO_ROOT / "localflow" / "references" / "config.md"
-sys.path.insert(0, str(SCRIPTS_DIR))
-
-
-def load_script(name: str):
-    spec = importlib.util.spec_from_file_location(name, SCRIPTS_DIR / f"{name}.py")
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-repo_flow = load_script("repo_flow")
 
 
 def canonical_template() -> str:

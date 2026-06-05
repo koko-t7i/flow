@@ -7,17 +7,16 @@ argument-hint: "[check|tree|fast|mr|commit|clean] (or describe the change to del
 
 Use the `localflow:localflow` skill for this request. If the Skill tool is available, invoke `localflow:localflow` before continuing, then follow that skill's workflow exactly.
 
-If the first argument is `check`, treat it as the `localflow check` subcommand: run only the environment capability snapshot, report results, and stop without editing the repository.
+Dispatch by first argument, then use the matching subcommand section in the skill:
 
-If the first argument is `mr`, treat it as the `localflow mr` subcommand: run only the deterministic MR/PR create-or-status script, report results, and stop without implementing, committing, merging, or cleaning up. For a shared checkout that must not be disturbed (e.g. a single combined live preview while multiple agents edit the same directory and branch), use the script's `--snapshot --branch <type/slug> --paths <files...> --message <...>` mode: it captures the named files into a side branch without touching the working tree, index, or `HEAD`, then opens or updates the review.
-
-If the first argument is `tree`, treat it as the tree mode workflow: use an isolated task worktree and task branch, commit scoped changes, and deliver through MR/PR review. `tree` does not land into the local long-lived branch and does not clean worktrees or branches.
-
-If the first argument is `fast`, treat it as the `localflow fast` subcommand after the task branch has already been committed in an isolated worktree: run only the deterministic local landing script. It rebases the clean task branch onto the local base, fast-forward merges it into the local long-lived branch, reports local ahead/behind remote state, and stops without pushing, opening MR/PR, or cleaning worktrees/branches.
-
-If the first argument is `commit`, treat it as the `localflow commit` subcommand: run only the deterministic commit script, which stages only the named `--paths`, writes an English Conventional Commit on the current task branch, and (with `--mr`) opens the review in one step. Use this in the default isolated-worktree flow; it refuses to run on a long-lived or detached branch and never uses `git add .`. For a shared checkout where multiple agents work the same branch, prefer `mr --snapshot --paths <files...>` instead.
-
-If the first argument is `clean`, treat it as the `localflow clean` subcommand: run only the deterministic cleanup script. The script must refuse cleanup unless the MR/PR is already merged or the task branch is already merged into the base branch. When invoked from a long-lived branch, it may scan and clean all safe landed leftovers while skipping unmerged work.
+| Argument | Meaning |
+| --- | --- |
+| `check` | Read-only environment capability snapshot. |
+| `tree` | Default isolated-worktree MR/PR review workflow. |
+| `fast` | Local landing for a clean committed task worktree; no push, MR/PR, or cleanup. |
+| `mr` | Create or inspect the current branch MR/PR; supports `--snapshot` for shared live-preview checkouts. |
+| `commit` | Stage only named `--paths`, commit, and optionally open MR/PR with `--mr`. |
+| `clean` | Clean only already-landed branches/worktrees/remotes. |
 
 If the repository has **no** localflow config file (`.codex/localflow.toml` / `.claude/localflow.toml`), confirm `base_branch` / `delivery_mode` / `remote_provider` (only when ambiguous) / `remote` / `draft` / `version_policy` with the user and write `.<host>/localflow.toml` before delivering — do not silently rely on heuristics. Skip when a config already exists; never overwrite one without an explicit request.
 

@@ -311,8 +311,7 @@ def scan_landed_cleanup(
         "prune_step": prune_step,
         "config_path": config_path,
     }
-    json_path, md_path = flow.write_outputs("clean", data)
-    return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+    return flow.attach_outputs("clean", data)
 
 
 def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
@@ -402,8 +401,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
         "local_steps": local_steps,
         "config_path": config_path,
     }
-    json_path, md_path = flow.write_outputs("clean", data)
-    return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+    return flow.attach_outputs("clean", data)
 
 
 def main() -> int:
@@ -412,11 +410,7 @@ def main() -> int:
     parser.add_argument("--host", choices=("codex", "claude"), default="codex")
     args = parser.parse_args()
     data = run(Path(args.cwd).resolve(), args.host)
-    if "json_path" not in data:
-        json_path, md_path = flow.write_outputs("clean", data)
-        data = {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
-    flow.print_summary(data)
-    return 0 if data.get("ok") else 1
+    return flow.finish_command("clean", data)
 
 
 if __name__ == "__main__":

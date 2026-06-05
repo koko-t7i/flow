@@ -80,47 +80,14 @@ In Remote Review mode:
 - keep the local task branch and worktree for review, CI, and conflict fixes
 - wait for explicit user approval before merging
 
-## Deterministic MR and Clean Subcommands
+## Deterministic Subcommands
 
-Use `localflow mr` when the user wants to create or inspect the current branch MR/PR without running the full implementation workflow. The command is script-driven:
+`SKILL.md` owns subcommand routing and runnable script examples. This reference owns the contribution rules those scripts enforce.
 
-```bash
-uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex
-```
-
-The script validates that the current branch is a clean task branch with commits ahead of the base branch, runs configured `pre_commit` checks, pushes the branch, and creates or reports the existing review request. It never commits, merges, or cleans up.
-
-Use `localflow fast` when the user wants to land a committed isolated task
-worktree into the local long-lived branch without remote review:
-
-```bash
-uv run python ./localflow/scripts/fast.py --cwd "$PWD" --host codex
-```
-
-The script refuses long-lived branches, detached HEADs, dirty task worktrees,
-non-linked worktrees, task branches without commits, rebase conflicts, and
-diverged local/remote base branches. It fetches the base, fast-forwards the
-local base when possible, rebases the task branch, runs configured checks,
-fast-forward merges into the local base, runs post-merge checks, and reports
-local base ahead/behind remote counts. It never pushes, opens review, or cleans.
-
-For a shared checkout that must stay live (one combined frontend preview, multiple agents on one directory and branch), use the snapshot mode, which bypasses the dirty-worktree and long-lived-branch guards on purpose:
-
-```bash
-uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex \
-  --snapshot --branch <type/slug> --paths <files...> \
-  --type <type> --summary "<imperative summary>" [--bump patch|minor|major]
-```
-
-Snapshot mode captures the current worktree state of the named `--paths` into a side branch through a throwaway index, then pushes and opens or updates the review. It never touches the working tree, the real index, or `HEAD`, so the preview is not interrupted and no branch is switched. The subject is validated as an English Conventional Commit (allowed types only, no AI attribution) before any git write; `--paths` is required and scopes the change to the task's files; `--bump` injects a `[version_policy]` bump into the snapshot only, leaving the on-disk version file unchanged, and the version decision is reported. Concurrent edits to the *same* file by two agents cannot be separated — that is the inherent limit of one shared working directory.
-
-Use `localflow clean` only after the work has landed:
-
-```bash
-uv run python ./localflow/scripts/clean.py --cwd "$PWD" --host codex
-```
-
-The clean script never merges. On a task branch, it must refuse cleanup unless the current branch's MR/PR is already merged, or the task branch is already merged into the base branch for Local Landing. On a long-lived branch, it scans local branches, owned worktrees, and remote branches, then cleans only landed candidates. If an MR/PR is open, closed without merge, has a mismatched head SHA, the worktree is dirty, or lifecycle ownership is unclear, that candidate is skipped without deleting its remote branch, local branch, or worktree.
+- `localflow commit` stages only named `--paths`, validates an English Conventional Commit subject before git writes, and can chain into `mr` with `--mr`.
+- `localflow mr` creates or reports the current clean task branch review. Snapshot mode is the shared-checkout exception: it captures only named `--paths` into a side branch without touching the working tree, index, or `HEAD`.
+- `localflow fast` is the local landing entrypoint for a committed isolated worktree. Mode details live in [modes/fast.md](modes/fast.md).
+- `localflow clean` is the only cleanup entrypoint. It never merges and only deletes branches, worktrees, or remotes that are already landed.
 
 ### Lean Remote Review Path
 
@@ -153,10 +120,6 @@ If both checks show no pipeline, report that no pipeline was created instead of 
 ## Landing and Remote Cleanup
 
 In Local Landing mode, merge into the selected long-lived branch after verification and review gate pass. Run required post-merge checks before cleanup.
-
-`localflow fast` is the deterministic Local Landing entrypoint. It leaves the
-task branch and worktree in place; use `localflow clean` later if cleanup is
-desired.
 
 In Remote Review mode, merge only after the user explicitly approves. After merge, delete the remote task branch unless the platform already deleted it or the user says to keep it. Do not add a remote branch cleanup check when the platform confirms source-branch removal; inspect only when cleanup state is unclear.
 

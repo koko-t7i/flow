@@ -689,6 +689,13 @@ def write_outputs(name: str, data: dict[str, object]) -> tuple[Path, Path]:
     return json_path, md_path
 
 
+def attach_outputs(name: str, data: dict[str, object]) -> dict[str, object]:
+    if "json_path" in data:
+        return data
+    json_path, md_path = write_outputs(name, data)
+    return {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
+
+
 def render_markdown(name: str, data: dict[str, object]) -> str:
     lines = [f"# Localflow {name}", "", f"- Generated: `{datetime.now(timezone.utc).isoformat()}`"]
     for key in (
@@ -753,3 +760,9 @@ def print_summary(data: dict[str, object]) -> None:
             print(f"{key}: {data[key]}")
     if data.get("cleanup_hint"):
         print(f"cleanup_hint: {data['cleanup_hint']}")
+
+
+def finish_command(name: str, data: dict[str, object]) -> int:
+    data = attach_outputs(name, data)
+    print_summary(data)
+    return 0 if data.get("ok") else 1

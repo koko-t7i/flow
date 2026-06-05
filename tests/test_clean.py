@@ -1,48 +1,12 @@
-import importlib.util
 import json
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-
-SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "localflow" / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
+from helpers import FakeRunner, fail, load_script, ok
 
 
-def load_script(name: str):
-    spec = importlib.util.spec_from_file_location(name, SCRIPTS_DIR / f"{name}.py")
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-repo_flow = load_script("repo_flow")
 clean = load_script("clean")
-
-
-class FakeRunner:
-    def __init__(self, responses):
-        self.responses = {key: list(value) for key, value in responses.items()}
-        self.calls = []
-
-    def __call__(self, args, *, cwd, timeout=30, shell=False):
-        key = ("shell", args) if shell else tuple(args)
-        self.calls.append(key)
-        values = self.responses.get(key)
-        if not values:
-            return repo_flow.CommandResult(False, 1, "", f"unexpected command: {key}", args)
-        return values.pop(0)
-
-
-def ok(args, stdout="", stderr=""):
-    return repo_flow.CommandResult(True, 0, stdout, stderr, args)
-
-
-def fail(args, stderr="failed"):
-    return repo_flow.CommandResult(False, 1, "", stderr, args)
 
 
 class CleanCommandTest(unittest.TestCase):

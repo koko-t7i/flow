@@ -14,6 +14,7 @@ from pathlib import Path
 
 sys.dont_write_bytecode = True
 
+import lifecycle
 import mr
 import repo_flow as flow
 
@@ -34,21 +35,22 @@ def run_commit(
     Built for the default isolated-worktree delivery path. The shared-checkout /
     multi-agent path uses `mr --snapshot` instead, which never touches the worktree.
     """
-    try:
-        config, config_path = flow.load_repo_config(cwd, host, runner)
-    except RuntimeError as exc:
-        return flow.stop("not_git_repo", str(exc))
-    root = flow.repo_root(cwd, runner)
+    context = lifecycle.load_task_context(
+        cwd,
+        host,
+        "commit",
+        runner,
+        require_clean=False,
+        detached_message="Current checkout is detached; localflow commit needs a named task branch.",
+        long_lived_message="Refusing to commit task work directly onto long-lived branch {branch}.",
+    )
+    if not context.get("ok"):
+        return context
+    root = Path(context["root"])
+    branch = str(context["branch"])
+    config_path = context["config_path"]
 
     # Validate everything BEFORE any git write so we never half-stage.
-    branch = flow.current_branch(root, runner)
-    if not branch:
-        return flow.stop("detached_head", "Current checkout is detached; localflow commit needs a named task branch.")
-    if branch in flow.LONG_LIVED_BRANCHES:
-        return flow.stop(
-            "long_lived_branch",
-            f"Refusing to commit task work directly onto long-lived branch {branch}.",
-        )
     subject_error = flow.validate_commit_subject(message)
     if subject_error:
         return flow.stop("invalid_commit_message", subject_error)
@@ -89,17 +91,13 @@ def run_commit(
     }
 
     if not open_mr:
-        json_path, md_path = flow.write_outputs("commit", commit_data)
-        return {**commit_data, "json_path": str(json_path), "markdown_path": str(md_path)}
+        return flow.attach_outputs("commit", commit_data)
 
     # One-shot: chain into the normal review flow. The commit is real and correct,
     # so a failing mr does NOT roll it back — surface mr's stop and keep the commit.
     mr_result = mr.run(root, host, runner)
     data: dict[str, object] = {**mr_result, "commit": commit_data}
-    if "json_path" not in data:
-        json_path, md_path = flow.write_outputs("commit", data)
-        data = {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
-    return data
+    return flow.attach_outputs("commit", data)
 
 
 def main() -> int:
@@ -137,11 +135,7 @@ def main() -> int:
             open_mr=args.open_mr,
         )
 
-    if "json_path" not in data:
-        json_path, md_path = flow.write_outputs("commit", data)
-        data = {**data, "json_path": str(json_path), "markdown_path": str(md_path)}
-    flow.print_summary(data)
-    return 0 if data.get("ok") else 1
+    return flow.finish_command("commit", data)
 
 
 if __name__ == "__main__":
