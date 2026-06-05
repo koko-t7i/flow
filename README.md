@@ -227,18 +227,19 @@ uv run python ./localflow/scripts/check_env_files.py --cwd "$PWD"
 ## Repository Layout
 
 ```text
-.claude-plugin/                 # Claude Code plugin and marketplace manifests
-.claude/localflow.toml          # Repo-local Claude Code workflow defaults
-.codex/localflow.toml           # Repo-local Codex workflow defaults
-.pi/localflow.toml              # Repo-local pi workflow defaults
-commands/localflow.md           # Claude Code slash command entrypoint
-skills/localflow                # Claude Code skill symlink to ./localflow
-localflow/SKILL.md              # Shared workflow entrypoint
-localflow/agents/openai.yaml    # Codex UI metadata
-localflow/agents/pi.yaml        # Pi UI metadata
-localflow/references/           # Workflow modules loaded on demand
-localflow/scripts/              # Deterministic helper scripts
-tests/                          # Script tests
+.
+├── .claude-plugin/           # Claude Code plugin + marketplace manifests
+├── .claude/localflow.toml    # Repo-local Claude Code workflow defaults
+├── .codex/localflow.toml     # Repo-local Codex workflow defaults
+├── .pi/localflow.toml        # Repo-local pi workflow defaults
+├── commands/                 # Claude Code slash commands (one per subcommand)
+├── skills/localflow          # Claude Code skill symlink -> ../localflow
+├── localflow/                # Shared skill source
+│   ├── SKILL.md              # Workflow entrypoint
+│   ├── agents/               # Host UI metadata (openai.yaml, pi.yaml)
+│   ├── references/           # Workflow modules loaded on demand
+│   └── scripts/              # Deterministic helper scripts
+└── tests/                    # Script tests
 ```
 
 ## Cleanup
