@@ -7,7 +7,8 @@ checks, and delivers through review or local integration.
 
 The same source tree is packaged as:
 
-- a Claude Code plugin with `/localflow`
+- a Claude Code plugin with `/localflow:<subcommand>` (each subcommand is its
+  own slash command, plus a free-form `/localflow:localflow` entry)
 - a Codex skill with `$localflow`
 
 Use it for work that may need branch selection, validation, commit creation,
@@ -58,16 +59,16 @@ landed leftovers and skips open, dirty, mismatched, or unowned candidates.
 
 ## Commands
 
-Claude Code:
+Claude Code (each subcommand is its own slash command):
 
 ```text
-/localflow check
-/localflow tree
-/localflow fast
-/localflow mr
-/localflow commit
-/localflow clean
-/localflow <describe the change to deliver>
+/localflow:check
+/localflow:tree
+/localflow:fast
+/localflow:mr
+/localflow:commit
+/localflow:clean
+/localflow:localflow <describe the change to deliver>
 ```
 
 Codex:
