@@ -7,6 +7,7 @@ Config is optional and host-specific, committed inside the target repository:
 
 - Codex reads `.codex/localflow.toml` first, then `.claude/localflow.toml`.
 - Claude Code reads `.claude/localflow.toml` first, then `.codex/localflow.toml`.
+- Pi reads `.pi/localflow.toml` first, then `.claude/localflow.toml`, then `.codex/localflow.toml`.
 
 User instructions override config; config overrides defaults. If both host files
 exist, do not merge them. `load_repo_config` returns `({}, None)` when neither
@@ -20,7 +21,7 @@ When neither host's config file exists, or the selected config is old schema, do
 NOT silently let deterministic scripts fall back to heuristics. Before the first
 delivery action (`mr` / `commit` / `clean`):
 
-1. **Detect.** No `.codex/localflow.toml` and no `.claude/localflow.toml`, or a
+1. **Detect.** No `.codex/localflow.toml`, `.claude/localflow.toml`, or `.pi/localflow.toml`, or a
    subcommand returned `config_missing` / `config_schema_outdated`.
 2. **Confirm with the user** (use the host's question UI, e.g. AskUserQuestion),
    pre-filling the heuristic guess as the default for each item:
@@ -29,12 +30,13 @@ delivery action (`mr` / `commit` / `clean`):
    - `remote_cli` — `gh` | `glab` | `none`. Use `none` only when this repo should
      not create MR/PR reviews from localflow.
    - `passphrase` — always write `file:passphrase`; the real passphrase lives
-     beside the config file (`.codex/passphrase` or `.claude/passphrase`) and
+     beside the config file (`.codex/passphrase`, `.claude/passphrase`, or
+     `.pi/passphrase`) and
      must be git-ignored.
    - `default_mode` — `tree` | `fast`; default to `tree`.
 3. **Write** the confirmed values to the **current host's** file
-   (`.claude/localflow.toml` for Claude Code, `.codex/localflow.toml` for Codex)
-   using the template below. Then continue the normal flow; subsequent runs see a
+   (`.claude/localflow.toml` for Claude Code, `.codex/localflow.toml` for Codex,
+   `.pi/localflow.toml` for pi) using the template below. Then continue the normal flow; subsequent runs see a
    non-null current-schema config and skip this gate.
 4. **Never overwrite** an existing config file without an explicit user request.
    If a config already exists, skip this gate entirely.

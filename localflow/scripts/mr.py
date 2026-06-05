@@ -304,7 +304,7 @@ def run_snapshot(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cwd", default=".", help="Repository working directory")
-    parser.add_argument("--host", choices=("codex", "claude"), default="codex")
+    parser.add_argument("--host", choices=("codex", "claude", "pi"), default="codex")
     parser.add_argument(
         "--snapshot",
         action="store_true",

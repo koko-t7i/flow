@@ -103,7 +103,7 @@ def run_commit(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cwd", default=".", help="Repository working directory")
-    parser.add_argument("--host", choices=("codex", "claude"), default="codex")
+    parser.add_argument("--host", choices=("codex", "claude", "pi"), default="codex")
     parser.add_argument("--paths", nargs="+", default=[], help="Task files to stage (only these are committed)")
     parser.add_argument("--message", help="Full Conventional Commit subject")
     parser.add_argument("--type", help="Conventional Commit type (used with --summary)")

@@ -27,6 +27,9 @@ uv run python "${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/plugins/localflow/localflow}/
 
 # Codex skill install.
 uv run python "$HOME/.codex/skills/localflow/scripts/check_environment.py" --cwd "$PWD"
+
+# Pi skill install.
+uv run python "$HOME/.pi/skills/localflow/scripts/check_environment.py" --cwd "$PWD"
 ```
 
 Read the Markdown summary first for quick decisions. Read the JSON when you need exact failure kinds, command paths, or probe output.

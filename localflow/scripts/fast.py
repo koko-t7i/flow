@@ -82,7 +82,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cwd", default=".", help="Repository working directory")
-    parser.add_argument("--host", choices=("codex", "claude"), default="codex")
+    parser.add_argument("--host", choices=("codex", "claude", "pi"), default="codex")
     args = parser.parse_args()
     data = run(Path(args.cwd).resolve(), args.host)
     return flow.finish_command("fast", data)

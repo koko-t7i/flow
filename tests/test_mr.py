@@ -67,6 +67,42 @@ default_mode = "tree"
         self.assertEqual(config["remote_cli"], "gh")
         self.assertTrue(str(path).endswith(".codex/localflow.toml"))
 
+    def test_pi_host_prefers_pi_config(self):
+        root = self.make_repo()
+        (root / ".pi").mkdir()
+        (root / ".pi" / "localflow.toml").write_text(
+            """
+version = 1
+base_branch = "dev"
+remote_cli = "gh"
+passphrase = "file:passphrase"
+default_mode = "tree"
+""",
+            encoding="utf-8",
+        )
+        runner = FakeRunner({("git", "rev-parse", "--show-toplevel"): [ok([], str(root))]})
+
+        config, path = repo_flow.load_repo_config(root, "pi", runner)
+
+        self.assertEqual(config["base_branch"], "dev")
+        self.assertTrue(str(path).endswith(".pi/localflow.toml"))
+
+    def test_pi_host_falls_back_to_claude_then_codex(self):
+        root = self.make_repo()
+        runner = FakeRunner(
+            {("git", "rev-parse", "--show-toplevel"): [ok([], str(root)), ok([], str(root))]}
+        )
+
+        # No .pi and no .claude: fall back to the .codex file.
+        config, path = repo_flow.load_repo_config(root, "pi", runner)
+        self.assertTrue(str(path).endswith(".codex/localflow.toml"))
+
+        # With .claude present, pi prefers it over the .codex fallback.
+        (root / ".claude").mkdir()
+        (root / ".claude" / "localflow.toml").write_text(DEFAULT_CONFIG, encoding="utf-8")
+        config, path = repo_flow.load_repo_config(root, "pi", runner)
+        self.assertTrue(str(path).endswith(".claude/localflow.toml"))
+
     def test_dirty_worktree_stops_before_create_or_push(self):
         root = self.make_repo()
         responses = self.base_responses(root)

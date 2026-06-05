@@ -1,0 +1,6 @@
+version = 1
+
+base_branch = "main"
+remote_cli = "gh"
+passphrase = "file:passphrase"
+default_mode = "tree"

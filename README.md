@@ -10,6 +10,7 @@ The same source tree is packaged as:
 - a Claude Code plugin with `/localflow:<subcommand>` (each subcommand is its
   own slash command, plus a free-form `/localflow:localflow` entry)
 - a Codex skill with `$localflow`
+- a pi skill with `/localflow`
 
 Use it for work that may need branch selection, validation, commit creation,
 push/auth recovery, MR/PR creation, or cleanup after landing. Do not use it for
@@ -83,6 +84,18 @@ $localflow clean
 $localflow <describe the change to deliver>
 ```
 
+Pi:
+
+```text
+/localflow check
+/localflow tree
+/localflow fast
+/localflow mr
+/localflow commit
+/localflow clean
+/localflow <describe the change to deliver>
+```
+
 The deterministic scripts behind those commands live in `localflow/scripts/`.
 They write JSON and Markdown snapshots under `~/.cache/localflow/`.
 
@@ -113,11 +126,12 @@ Projects can commit host-specific workflow defaults:
 ```text
 .codex/localflow.toml
 .claude/localflow.toml
+.pi/localflow.toml
 ```
 
 Codex reads `.codex/localflow.toml` first. Claude Code reads
-`.claude/localflow.toml` first. The other file is a fallback only; the two files
-are not merged.
+`.claude/localflow.toml` first. Pi reads `.pi/localflow.toml` first. The other
+files are fallbacks only; they are not merged.
 
 Current schema:
 
@@ -173,6 +187,14 @@ Validate the skill when the Codex system validator is available:
 python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
 ```
 
+### Pi
+
+Install by symlinking this repository's skill directory:
+
+```bash
+ln -s "$PWD/localflow" "$HOME/.pi/skills/localflow"
+```
+
 ## Development
 
 Run the full test suite:
@@ -208,10 +230,12 @@ uv run python ./localflow/scripts/check_env_files.py --cwd "$PWD"
 .claude-plugin/                 # Claude Code plugin and marketplace manifests
 .claude/localflow.toml          # Repo-local Claude Code workflow defaults
 .codex/localflow.toml           # Repo-local Codex workflow defaults
+.pi/localflow.toml              # Repo-local pi workflow defaults
 commands/localflow.md           # Claude Code slash command entrypoint
 skills/localflow                # Claude Code skill symlink to ./localflow
 localflow/SKILL.md              # Shared workflow entrypoint
 localflow/agents/openai.yaml    # Codex UI metadata
+localflow/agents/pi.yaml        # Pi UI metadata
 localflow/references/           # Workflow modules loaded on demand
 localflow/scripts/              # Deterministic helper scripts
 tests/                          # Script tests

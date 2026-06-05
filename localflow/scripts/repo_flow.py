@@ -198,6 +198,12 @@ def load_repo_config(cwd: Path, host: str, runner=run_command) -> tuple[dict[str
     root = repo_root(cwd, runner)
     if host == "claude":
         candidates = [root / ".claude" / "localflow.toml", root / ".codex" / "localflow.toml"]
+    elif host == "pi":
+        candidates = [
+            root / ".pi" / "localflow.toml",
+            root / ".claude" / "localflow.toml",
+            root / ".codex" / "localflow.toml",
+        ]
     else:
         candidates = [root / ".codex" / "localflow.toml", root / ".claude" / "localflow.toml"]
     for path in candidates:
