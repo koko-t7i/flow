@@ -18,12 +18,9 @@ class ConfigTemplateTest(unittest.TestCase):
     def _assert_keys(self, config):
         self.assertEqual(config.get("version"), 1)
         self.assertEqual(config.get("base_branch"), "main")
-        self.assertEqual(config.get("delivery_mode"), "remote_review")
-        self.assertEqual(repo_flow.section(config, "delivery")["remote_provider"], "github")
-        self.assertEqual(repo_flow.section(config, "mr")["remote"], "origin")
-        self.assertEqual(repo_flow.section(config, "mr")["draft"], False)
-        self.assertEqual(repo_flow.section(config, "version_policy")["enabled"], False)
-        self.assertEqual(repo_flow.section(config, "version_policy")["files"], [])
+        self.assertEqual(config.get("remote_cli"), "gh")
+        self.assertEqual(config.get("passphrase"), "file:passphrase")
+        self.assertEqual(config.get("default_mode"), "tree")
 
     def test_template_parses_via_tomllib(self):
         # parse_toml_text uses the stdlib tomllib (strict TOML) when available.

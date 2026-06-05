@@ -59,14 +59,14 @@ decisions:
 
 Both files use the same schema. Codex reads `.codex/localflow.toml` first and
 Claude Code reads `.claude/localflow.toml` first; the other file is only a
-fallback. User instructions still override config.
+fallback. User instructions still override config. If neither file exists, or
+the selected file is old schema, localflow asks for the required settings before
+delivery instead of silently relying on heuristics.
 
-Localflow defaults to `worktree_mode = "isolated"` for implementation tasks:
-create a task branch in an isolated worktree, and keep the original checkout as
-the base/return point. Use `in_place` only as an explicit exception when the
-repository should persist current-branch delivery without repeated user
-instructions. The current branch must still be safe and dirty-tree ownership
-must be clear.
+Localflow defaults to `tree` mode for implementation tasks: create a task
+branch in an isolated worktree, and keep the original checkout as the
+base/return point. Use `fast` when the repository should land a committed task
+branch into the local base without MR/PR review.
 
 Example:
 
@@ -74,31 +74,14 @@ Example:
 version = 1
 
 base_branch = "main"
-delivery_mode = "remote_review"
-worktree_mode = "isolated"
-
-[version_policy]
-enabled = true
-scheme = "semver"
-files = [".claude-plugin/plugin.json"]
-
-[validation]
-docs = ["git diff --check"]
-code = ["python3 -m unittest discover -s tests"]
-pre_commit = ["git diff --check", "python3 -m unittest discover -s tests"]
-
-[delivery]
-remote_provider = "github"
-create_review = true
-wait_for_ci = false
-cleanup_remote_branch = "auto"
-
-[mr]
-remote = "origin"
-title_source = "latest_commit_subject"
-body_style = "commits_and_checks"
-draft = false
+remote_cli = "gh"
+passphrase = "file:passphrase"
+default_mode = "tree"
 ```
+
+`passphrase` points to a file in the same directory as `localflow.toml`, such as
+`.codex/passphrase` or `.claude/passphrase`. That file must be git-ignored and
+must never be committed.
 
 ## Install
 

@@ -18,7 +18,7 @@ Dispatch by first argument, then use the matching subcommand section in the skil
 | `commit` | Stage only named `--paths`, commit, and optionally open MR/PR with `--mr`. |
 | `clean` | Clean only already-landed branches/worktrees/remotes. |
 
-If the repository has **no** localflow config file (`.codex/localflow.toml` / `.claude/localflow.toml`), confirm `base_branch` / `delivery_mode` / `remote_provider` (only when ambiguous) / `remote` / `draft` / `version_policy` with the user and write `.<host>/localflow.toml` before delivering — do not silently rely on heuristics. Skip when a config already exists; never overwrite one without an explicit request.
+If the repository has **no** localflow config file (`.codex/localflow.toml` / `.claude/localflow.toml`), or the selected file is old schema, confirm `base_branch` / `remote_cli` / `passphrase` / `default_mode` with the user and write `.<host>/localflow.toml` before delivering. `passphrase` must point to an ignored file beside the config file, normally `file:passphrase`. Do not silently rely on heuristics, and never overwrite a current-schema config without an explicit request.
 
 User request:
 

@@ -18,8 +18,8 @@ branch. It does not create MR/PRs, does not push, and does not clean.
 5. The script fetches the remote base and fast-forwards the local base when
    possible. If local base is already ahead of remote, that is allowed. If local
    and remote base diverged, stop for manual integration.
-6. The script rebases the task branch onto the local base, runs configured
-   checks, and fast-forward merges the task branch into the local base.
+6. The script rebases the task branch onto the local base and fast-forward
+   merges the task branch into the local base.
 7. The task worktree and branch remain in place. Run `localflow clean` later
    when cleanup is desired.
 

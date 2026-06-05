@@ -25,7 +25,6 @@ def create_review(
     base: str,
     title: str,
     body: str,
-    draft: bool,
     runner=flow.run_command,
 ) -> dict[str, object]:
     if provider == "github":
@@ -33,8 +32,6 @@ def create_review(
             body_file.write(body)
             body_path = body_file.name
         args = ["gh", "pr", "create", "--base", base, "--head", branch, "--title", title, "--body-file", body_path]
-        if draft:
-            args.append("--draft")
         try:
             result = runner(args, cwd=cwd, timeout=60)
         finally:
@@ -54,8 +51,6 @@ def create_review(
             body,
             "--yes",
         ]
-        if draft:
-            args.append("--draft")
         result = runner(args, cwd=cwd, timeout=60)
     return {
         "ok": result.ok,
@@ -90,8 +85,7 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
     if not ahead:
         return flow.stop("no_branch_commits", f"Branch {branch} has no commits ahead of {base_name}.")
 
-    mr_config = flow.section(config, "mr")
-    remote = str(mr_config.get("remote") or "origin")
+    remote = flow.DEFAULT_REMOTE
     url = flow.remote_url(root, remote, runner)
     provider_result = flow.resolve_provider(config, url, root, runner)
     if not provider_result.get("provider"):
@@ -116,14 +110,9 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
             }
             return flow.attach_outputs("mr", data)
 
-        checks_ok, checks = flow.run_checks(root, config, runner)
-        if not checks_ok:
-            data = flow.stop("checks_failed", "Configured pre-commit checks failed.", checks=checks)
-            return flow.attach_outputs("mr", data)
-
-        push = flow.push_branch(root, remote, branch, url, runner)
+        push = flow.push_branch(root, remote, branch, url, runner, config=config, config_path=config_path)
         if not push.ok:
-            data = flow.stop("push_failed", "Could not push the task branch.", stderr=push.stderr, checks=checks)
+            data = flow.stop("push_failed", "Could not push the task branch.", stderr=push.stderr)
             return flow.attach_outputs("mr", data)
 
         review = flow.find_review(root, provider, branch, runner) or existing
@@ -136,25 +125,18 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
             "url": review.get("url"),
             "state": flow.normalize_review_state(review),
             "head_sha": local_head or review.get("headRefOid"),
-            "checks": checks,
             "config_path": config_path,
         }
         return flow.attach_outputs("mr", data)
 
-    checks_ok, checks = flow.run_checks(root, config, runner)
-    if not checks_ok:
-        data = flow.stop("checks_failed", "Configured pre-commit checks failed.", checks=checks)
-        return flow.attach_outputs("mr", data)
-
-    push = flow.push_branch(root, remote, branch, url, runner)
+    push = flow.push_branch(root, remote, branch, url, runner, config=config, config_path=config_path)
     if not push.ok:
-        data = flow.stop("push_failed", "Could not push the task branch.", stderr=push.stderr, checks=checks)
+        data = flow.stop("push_failed", "Could not push the task branch.", stderr=push.stderr)
         return flow.attach_outputs("mr", data)
 
     title = flow.commit_subject(root, runner)
-    body = flow.build_review_body(branch, base_name, flow.commit_lines(root, base_ref, runner), checks)
-    draft = bool(mr_config.get("draft") or False)
-    created = create_review(root, provider, branch, base_name, title, body, draft, runner)
+    body = flow.build_review_body(branch, base_name, flow.commit_lines(root, base_ref, runner))
+    created = create_review(root, provider, branch, base_name, title, body, runner)
     if not created["ok"]:
         data = flow.stop("review_create_failed", "Could not create the review request.", stderr=created["stderr"])
         return flow.attach_outputs("mr", data)
@@ -169,7 +151,6 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
         "url": (review or {}).get("url") or flow.first_line(created["stdout"]),
         "state": flow.normalize_review_state(review) if review else None,
         "head_sha": (review or {}).get("headRefOid"),
-        "checks": checks,
         "config_path": config_path,
     }
     return flow.attach_outputs("mr", data)
@@ -194,7 +175,6 @@ def run_snapshot(
     message: str,
     base: str | None = None,
     body: str | None = None,
-    bump: str | None = None,
     runner=flow.run_command,
 ) -> dict[str, object]:
     """Create or update a review from a side-branch snapshot of `paths`.
@@ -208,6 +188,9 @@ def run_snapshot(
         config, config_path = flow.load_repo_config(cwd, host, runner)
     except RuntimeError as exc:
         return flow.stop("not_git_repo", str(exc))
+    config_status = flow.require_repo_config(config, config_path)
+    if not config_status.get("ok"):
+        return config_status
     root = flow.repo_root(cwd, runner)
 
     # Validate inputs before any git write so we never half-create a branch.
@@ -228,8 +211,7 @@ def run_snapshot(
     # On a shared checkout whose local origin/<base> lags the real remote, anchoring on
     # the stale ref makes the server diff the branch against the live target and pull in
     # already-merged files (as reverts). Fetch first; snapshot_drift below is the backstop.
-    mr_config = flow.section(config, "mr")
-    remote = str(mr_config.get("remote") or "origin")
+    remote = flow.DEFAULT_REMOTE
 
     if base:
         base_name = base
@@ -239,7 +221,7 @@ def run_snapshot(
             return base_result
         base_name = str(base_result["name"])
 
-    fetch = flow.fetch_branch(root, remote, base_name, runner)
+    fetch = flow.fetch_branch(root, remote, base_name, runner, config=config, config_path=config_path)
     remote_ref = f"{remote}/{base_name}"
     if fetch.ok and flow.ref_exists(root, remote_ref, runner):
         base_ref = remote_ref
@@ -256,19 +238,8 @@ def run_snapshot(
 
     parent_ref = f"refs/heads/{branch}" if flow.branch_exists(root, branch, runner) else base_ref
 
-    version_info: dict[str, object] = {"decision": "unchanged", "reason": "no --bump requested"}
-    version_blobs: list[tuple[str, str]] = []
-    if bump:
-        bump_result = flow.prepare_version_bump(root, config, bump, runner)
-        if not bump_result.get("ok"):
-            return bump_result
-        version_info = bump_result["version"]  # type: ignore[assignment]
-        version_blobs = bump_result["blobs"]  # type: ignore[assignment]
-
     full_message = f"{message}\n\n{body.strip()}" if body else message
-    snapshot = flow.snapshot_branch(
-        root, branch, base_ref, list(paths), full_message, parent_ref, version_blobs=version_blobs, runner=runner
-    )
+    snapshot = flow.snapshot_branch(root, branch, base_ref, list(paths), full_message, parent_ref, runner=runner)
     if not snapshot.get("ok"):
         return snapshot
     sha = str(snapshot["sha"])
@@ -287,15 +258,14 @@ def run_snapshot(
 
     existing = flow.find_review(root, provider, branch, runner)
 
-    push = flow.push_branch(root, remote, branch, url, runner)
+    push = flow.push_branch(root, remote, branch, url, runner, config=config, config_path=config_path)
     if not push.ok:
         data = flow.stop("push_failed", "Could not push the snapshot branch.", stderr=push.stderr)
         return flow.attach_outputs("mr", data)
 
     if not existing:
         body_text = flow.build_review_body(branch, base_name, [f"{sha[:9]} {message}"], [])
-        draft = bool(mr_config.get("draft") or False)
-        created = create_review(root, provider, branch, base_name, message, body_text, draft, runner)
+        created = create_review(root, provider, branch, base_name, message, body_text, runner)
         if not created["ok"]:
             data = flow.stop("review_create_failed", "Could not create the review request.", stderr=created["stderr"])
             return flow.attach_outputs("mr", data)
@@ -311,7 +281,6 @@ def run_snapshot(
         "state": flow.normalize_review_state(review) if review else None,
         "head_sha": sha,
         "included_files": list(paths),
-        "version": version_info,
         "worktree_untouched": True,
         "config_path": config_path,
     }
@@ -336,7 +305,6 @@ def main() -> int:
     parser.add_argument("--summary", help="Imperative summary (used with --type)")
     parser.add_argument("--body", help="Optional commit/MR body")
     parser.add_argument("--breaking", action="store_true", help="Mark the change as breaking (appends '!')")
-    parser.add_argument("--bump", choices=("patch", "minor", "major"), help="Apply a SemVer bump per [version_policy]")
     args = parser.parse_args()
 
     cwd = Path(args.cwd).resolve()
@@ -359,7 +327,6 @@ def main() -> int:
                     message=message,
                     base=args.base,
                     body=args.body,
-                    bump=args.bump,
                 )
     else:
         data = run(cwd, args.host)

@@ -38,11 +38,11 @@ Read-only inspection, fetch, fast-forward synchronization, and creating an isola
 
 ## Task Branch and Worktree
 
-New tasks default to a `type/slug` task branch plus an isolated worktree, created from the selected long-lived branch. Missing `worktree_mode` means `isolated`.
+New tasks default to a `type/slug` task branch plus an isolated worktree, created from the selected long-lived branch. `default_mode = "tree"` uses this worktree for MR/PR review; `default_mode = "fast"` uses it for local landing.
 
 Do not ask whether to create a worktree for normal implementation work. Create or reuse a safe task worktree before editing files. If the current directory is already a linked worktree, reuse it only when it is on a task branch, not nested, and dirty-tree ownership is clear.
 
-If repository config sets `worktree_mode = "isolated"`, use an isolated worktree. If it sets `worktree_mode = "in_place"`, treat the config as durable current-branch delivery approval for that repository, so the user does not need to repeat it every task. Work in place only when the current branch is not a long-lived branch and dirty-tree ownership is clear.
+Work in place only when the user explicitly asks for a shared-checkout snapshot flow or another current-branch exception. The repository config no longer carries an in-place worktree approval.
 
 Use a lean preflight before creating a worktree: gather current branch, dirty state, worktree status, and submodule/nested-worktree risk in the fewest commands practical. Do not create nested worktrees.
 
@@ -68,7 +68,7 @@ Track lifecycle provenance:
 - **Prepared:** task branch and worktree exist.
 - **In progress:** implementation and verification happen only in the task worktree.
 - **Committed:** task commits exist and local checks/review gate are complete.
-- **Delivered:** Local Landing merged locally, Remote Review MR/PR created, or Push Only pushed.
+- **Delivered:** Local Landing merged locally or Remote Review MR/PR created.
 - **Landed:** local merge completed or MR/PR merged.
 - **Cleaned:** task worktree and task branches owned by this delivery unit are removed; checkout is back on the long-lived branch.
 
@@ -97,7 +97,7 @@ Do not remove a worktree that is harness-owned, contains unrelated user changes,
 
 ## Stop Conditions
 
-Stop when configured `base_branch` does not exist, configured `worktree_mode` is unsafe for the current branch, the long-lived branch cannot be chosen, the safe base cannot be identified, dirty-tree ownership is unclear, worktree isolation cannot be created, existing changes cannot be safely moved to a task worktree, or cleanup would affect work outside this delivery unit.
+Stop when configured `base_branch` does not exist, `default_mode` is incompatible with `remote_cli`, the long-lived branch cannot be chosen, the safe base cannot be identified, dirty-tree ownership is unclear, worktree isolation cannot be created, existing changes cannot be safely moved to a task worktree, or cleanup would affect work outside this delivery unit.
 
 ## Common Mistakes
 

@@ -15,7 +15,6 @@ import ast
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urlparse
 
 
 CACHE_DIR = Path.home() / ".cache" / "localflow"
@@ -35,6 +34,9 @@ CONVENTIONAL_TYPES = {
     "revert",
 }
 BANNED_COMMIT_TOKENS = ("claude", "codex", "anthropic", "openai", "co-authored-by")
+REQUIRED_CONFIG_KEYS = ("base_branch", "remote_cli", "passphrase", "default_mode")
+REMOTE_CLI_PROVIDERS = {"gh": "github", "glab": "gitlab"}
+DEFAULT_REMOTE = "origin"
 
 
 @dataclass
@@ -204,9 +206,53 @@ def load_repo_config(cwd: Path, host: str, runner=run_command) -> tuple[dict[str
     return {}, None
 
 
-def section(config: dict[str, object], name: str) -> dict[str, object]:
-    value = config.get(name)
-    return value if isinstance(value, dict) else {}
+def validate_repo_config(config: dict[str, object], config_path: str | None) -> dict[str, object] | None:
+    if config_path is None:
+        return stop(
+            "config_missing",
+            "No localflow config found; confirm base_branch, remote_cli, passphrase, and default_mode first.",
+        )
+
+    missing = [key for key in REQUIRED_CONFIG_KEYS if key not in config]
+    if missing:
+        return stop(
+            "config_schema_outdated",
+            f"Localflow config is missing required field(s): {', '.join(missing)}.",
+            config_path=config_path,
+        )
+
+    base_branch = str(config.get("base_branch") or "")
+    if base_branch not in LONG_LIVED_BRANCHES:
+        return stop("config_invalid", f"Unsupported base_branch: {base_branch}", config_path=config_path)
+
+    remote_cli = str(config.get("remote_cli") or "").lower()
+    if remote_cli not in {"gh", "glab", "none"}:
+        return stop("config_invalid", f"Unsupported remote_cli: {remote_cli}", config_path=config_path)
+
+    default_mode = str(config.get("default_mode") or "").lower()
+    if default_mode not in {"tree", "fast"}:
+        return stop("config_invalid", f"Unsupported default_mode: {default_mode}", config_path=config_path)
+
+    passphrase = str(config.get("passphrase") or "")
+    if not passphrase.startswith("file:"):
+        return stop("config_invalid", "passphrase must use file:<name>.", config_path=config_path)
+    rel = passphrase.removeprefix("file:")
+    rel_path = Path(rel)
+    if rel_path.is_absolute() or len(rel_path.parts) != 1 or rel_path.name in {"", ".", ".."}:
+        return stop(
+            "config_invalid",
+            "passphrase must point to a file in the same directory as localflow.toml.",
+            config_path=config_path,
+        )
+
+    return None
+
+
+def require_repo_config(config: dict[str, object], config_path: str | None) -> dict[str, object]:
+    error = validate_repo_config(config, config_path)
+    if error:
+        return error
+    return {"ok": True}
 
 
 def current_branch(cwd: Path, runner=run_command) -> str | None:
@@ -264,60 +310,19 @@ def remote_url(cwd: Path, remote: str, runner=run_command) -> str | None:
     return first_line(result.stdout) if result.ok else None
 
 
-def remote_host(url: str | None) -> str | None:
-    if not url:
-        return None
-    if url.startswith("git@") and ":" in url:
-        return url.split("@", 1)[1].split(":", 1)[0]
-    return urlparse(url).hostname
-
-
-def infer_provider_from_cli_auth(
-    host: str,
-    cwd: Path,
-    runner=run_command,
-) -> dict[str, str] | dict[str, object]:
-    matches: list[str] = []
-    checks = [
-        ("gitlab", ["glab", "auth", "status", "--hostname", host]),
-        ("github", ["gh", "auth", "status", "--hostname", host]),
-    ]
-    for provider, args in checks:
-        result = runner(args, cwd=cwd, timeout=8)
-        if result.ok:
-            matches.append(provider)
-    if len(matches) == 1:
-        return {"provider": matches[0]}
-    if len(matches) > 1:
-        return stop(
-            "provider_ambiguous",
-            f"Both GitHub and GitLab auth are configured for remote host: {host}. "
-            "Set [delivery].remote_provider explicitly.",
-        )
-    return {}
-
-
 def resolve_provider(
     config: dict[str, object],
     url: str | None,
     cwd: Path | None = None,
     runner=run_command,
 ) -> dict[str, str] | dict[str, object]:
-    configured = str(section(config, "delivery").get("remote_provider") or "auto").lower()
-    if configured in {"github", "gitlab"}:
-        return {"provider": configured}
-    if configured not in {"auto", ""}:
-        return stop("provider_unsupported", f"Unsupported remote_provider: {configured}")
-    host = remote_host(url)
-    if host == "github.com":
-        return {"provider": "github"}
-    if host and "gitlab" in host:
-        return {"provider": "gitlab"}
-    if host and cwd is not None:
-        cli_result = infer_provider_from_cli_auth(host, cwd, runner)
-        if cli_result:
-            return cli_result
-    return stop("provider_ambiguous", f"Could not infer review provider from remote host: {host or 'absent'}.")
+    configured = str(config.get("remote_cli") or "").lower()
+    if configured == "none":
+        return stop("review_cli_disabled", "remote_cli is none; MR/PR review is disabled for this repository.")
+    provider = REMOTE_CLI_PROVIDERS.get(configured)
+    if provider:
+        return {"provider": provider}
+    return stop("config_schema_outdated", "Localflow config must set remote_cli to gh, glab, or none.")
 
 
 def https_remote_url(url: str | None) -> str | None:
@@ -351,7 +356,7 @@ def commit_lines(cwd: Path, base_ref: str, runner=run_command) -> list[str]:
     return result.stdout.splitlines()
 
 
-def build_review_body(branch: str, base: str, commits: list[str], checks: list[dict[str, object]]) -> str:
+def build_review_body(branch: str, base: str, commits: list[str], checks: list[dict[str, object]] | None = None) -> str:
     lines = [
         "## Summary",
         f"- Base: `{base}`",
@@ -366,38 +371,106 @@ def build_review_body(branch: str, base: str, commits: list[str], checks: list[d
             status = "passed" if check.get("ok") else "failed"
             lines.append(f"- `{check.get('command')}`: {status}")
     else:
-        lines.append("- No configured pre-commit checks.")
+        lines.append("- Verified by agent workflow before delivery.")
     return "\n".join(lines) + "\n"
 
 
-def run_checks(cwd: Path, config: dict[str, object], runner=run_command) -> tuple[bool, list[dict[str, object]]]:
-    commands = section(config, "validation").get("pre_commit") or []
-    if not isinstance(commands, list):
-        return False, [{"command": "validation.pre_commit", "ok": False, "stderr": "pre_commit must be a list"}]
-    results: list[dict[str, object]] = []
-    for command in commands:
-        result = runner(str(command), cwd=cwd, shell=True, timeout=300)
-        results.append(
-            {
-                "command": str(command),
-                "ok": result.ok,
-                "exit_code": result.exit_code,
-                "stdout": result.stdout,
-                "stderr": result.stderr,
-            }
-        )
-        if not result.ok:
-            return False, results
-    return True, results
+def needs_passphrase_retry(result: CommandResult) -> bool:
+    lower = f"{result.stdout}\n{result.stderr}".lower()
+    return "enter passphrase for key" in lower or "permission denied, please try again" in lower
 
 
-def fetch_branch(cwd: Path, remote: str, branch: str, runner=run_command) -> CommandResult:
+def passphrase_file(config: dict[str, object], config_path: str | None, cwd: Path, runner=run_command) -> dict[str, object]:
+    if config_path is None:
+        return stop("config_missing", "Cannot resolve passphrase without a localflow config path.")
+    value = str(config.get("passphrase") or "")
+    if not value.startswith("file:"):
+        return stop("passphrase_config_invalid", "passphrase must use file:<name>.")
+
+    rel = value.removeprefix("file:")
+    rel_path = Path(rel)
+    if rel_path.is_absolute() or len(rel_path.parts) != 1 or rel_path.name in {"", ".", ".."}:
+        return stop("passphrase_path_invalid", "passphrase file must live beside localflow.toml.")
+
+    path = (Path(config_path).parent / rel_path).resolve()
+    if not path.exists() or not path.is_file():
+        return stop("passphrase_file_missing", f"Configured passphrase file is missing: {path}")
+
+    root = repo_root(cwd, runner).resolve()
+    try:
+        rel_to_root = path.relative_to(root).as_posix()
+    except ValueError:
+        return stop("passphrase_path_invalid", "passphrase file must be inside the repository.")
+    if not is_ignored(root, rel_to_root, runner):
+        return stop("passphrase_file_not_ignored", f"Passphrase file must be git-ignored: {rel_to_root}")
+
+    secret = path.read_text(encoding="utf-8").rstrip("\r\n")
+    if not secret:
+        return stop("passphrase_file_empty", "Configured passphrase file is empty.")
+    return {"ok": True, "path": str(path), "secret": secret}
+
+
+def run_with_passphrase(
+    args: list[str],
+    *,
+    cwd: Path,
+    config: dict[str, object],
+    config_path: str | None,
+    timeout: int,
+    runner=run_command,
+) -> CommandResult:
+    loaded = passphrase_file(config, config_path, cwd, runner)
+    if not loaded.get("ok"):
+        return CommandResult(False, None, "", str(loaded.get("message")), args)
+
+    temp_dir = tempfile.mkdtemp(prefix="localflow-askpass-")
+    askpass = Path(temp_dir) / "askpass.sh"
+    try:
+        askpass.write_text("#!/bin/sh\nprintf '%s\\n' \"$LOCALFLOW_GIT_PASSPHRASE\"\n", encoding="utf-8")
+        askpass.chmod(0o700)
+        env = {
+            "GIT_ASKPASS": str(askpass),
+            "SSH_ASKPASS": str(askpass),
+            "SSH_ASKPASS_REQUIRE": "force",
+            "DISPLAY": os.environ.get("DISPLAY") or "localflow:0",
+            "LOCALFLOW_GIT_PASSPHRASE": str(loaded["secret"]),
+        }
+        return runner(args, cwd=cwd, timeout=timeout, env=env)
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def fetch_branch(
+    cwd: Path,
+    remote: str,
+    branch: str,
+    runner=run_command,
+    *,
+    config: dict[str, object] | None = None,
+    config_path: str | None = None,
+) -> CommandResult:
     """Refresh the remote-tracking ref for `branch` so callers can anchor on the live tip."""
-    return runner(["git", "fetch", remote, branch], cwd=cwd, timeout=120)
+    args = ["git", "fetch", remote, branch]
+    result = runner(args, cwd=cwd, timeout=120)
+    if result.ok or not config or not needs_passphrase_retry(result):
+        return result
+    return run_with_passphrase(args, cwd=cwd, config=config, config_path=config_path, timeout=120, runner=runner)
 
 
-def push_branch(cwd: Path, remote: str, branch: str, url: str | None, runner=run_command) -> CommandResult:
-    result = runner(["git", "push", "-u", remote, branch], cwd=cwd, timeout=120)
+def push_branch(
+    cwd: Path,
+    remote: str,
+    branch: str,
+    url: str | None,
+    runner=run_command,
+    *,
+    config: dict[str, object] | None = None,
+    config_path: str | None = None,
+) -> CommandResult:
+    args = ["git", "push", "-u", remote, branch]
+    result = runner(args, cwd=cwd, timeout=120)
+    if not result.ok and config and needs_passphrase_retry(result):
+        result = run_with_passphrase(args, cwd=cwd, config=config, config_path=config_path, timeout=120, runner=runner)
     if result.ok:
         return result
     fallback = https_remote_url(url)
@@ -408,8 +481,20 @@ def push_branch(cwd: Path, remote: str, branch: str, url: str | None, runner=run
     return result
 
 
-def delete_remote_branch(cwd: Path, remote: str, branch: str, url: str | None, runner=run_command) -> CommandResult:
-    result = runner(["git", "push", remote, "--delete", branch], cwd=cwd, timeout=120)
+def delete_remote_branch(
+    cwd: Path,
+    remote: str,
+    branch: str,
+    url: str | None,
+    runner=run_command,
+    *,
+    config: dict[str, object] | None = None,
+    config_path: str | None = None,
+) -> CommandResult:
+    args = ["git", "push", remote, "--delete", branch]
+    result = runner(args, cwd=cwd, timeout=120)
+    if not result.ok and config and needs_passphrase_retry(result):
+        result = run_with_passphrase(args, cwd=cwd, config=config, config_path=config_path, timeout=120, runner=runner)
     if result.ok or "remote ref does not exist" in result.stderr.lower():
         return CommandResult(True, result.exit_code, result.stdout, result.stderr, result.args)
     fallback = https_remote_url(url)
@@ -529,74 +614,6 @@ def branch_exists(cwd: Path, branch: str, runner=run_command) -> bool:
     )
 
 
-def bump_semver(version: str, level: str) -> str | None:
-    match = re.match(r"^(\d+)\.(\d+)\.(\d+)", version.strip())
-    if not match:
-        return None
-    major, minor, patch = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
-    if level == "major":
-        major, minor, patch = major + 1, 0, 0
-    elif level == "minor":
-        minor, patch = minor + 1, 0
-    elif level == "patch":
-        patch += 1
-    else:
-        return None
-    return f"{major}.{minor}.{patch}"
-
-
-def prepare_version_bump(
-    cwd: Path,
-    config: dict[str, object],
-    level: str,
-    runner=run_command,
-) -> dict[str, object]:
-    """Compute bumped version blobs without touching the working tree.
-
-    Reads each configured version file on disk (read-only), bumps the first SemVer it
-    contains, hashes the bumped content into a git blob, and returns the blobs to inject
-    into a snapshot index. Returns a stop() dict on failure.
-    """
-    policy = section(config, "version_policy")
-    if not policy.get("enabled"):
-        return stop("version_policy_disabled", "version_policy.enabled is not true; cannot --bump.")
-    files = policy.get("files") or []
-    if not isinstance(files, list) or not files:
-        return stop("version_files_missing", "version_policy.files is empty; nothing to bump.")
-    blobs: list[tuple[str, str]] = []
-    summary: dict[str, object] | None = None
-    for rel in files:
-        rel = str(rel)
-        path = Path(cwd) / rel
-        if not path.exists():
-            return stop("version_files_missing", f"configured version file is missing: {rel}")
-        text = path.read_text(encoding="utf-8")
-        match = re.search(r"\d+\.\d+\.\d+", text)
-        if not match:
-            return stop("version_files_unparseable", f"no SemVer found in {rel}")
-        old = match.group(0)
-        new = bump_semver(old, level)
-        if not new:
-            return stop("version_files_unparseable", f"could not bump version {old} in {rel}")
-        new_text = text[: match.start()] + new + text[match.end() :]
-        tmp = tempfile.NamedTemporaryFile("w", delete=False, encoding="utf-8")
-        try:
-            tmp.write(new_text)
-            tmp.close()
-            hashed = runner(["git", "hash-object", "-w", "--", tmp.name], cwd=cwd)
-        finally:
-            os.unlink(tmp.name)
-        if not hashed.ok:
-            return stop("version_files_unparseable", f"could not hash bumped {rel}: {hashed.stderr}")
-        blob = first_line(hashed.stdout)
-        if not blob:
-            return stop("version_files_unparseable", f"empty blob hash for {rel}")
-        blobs.append((rel, blob))
-        if summary is None:
-            summary = {"decision": "bumped", "from": old, "to": new, "files": files, "reason": f"--bump {level}"}
-    return {"ok": True, "version": summary, "blobs": blobs}
-
-
 def snapshot_branch(
     cwd: Path,
     branch: str,
@@ -605,7 +622,6 @@ def snapshot_branch(
     message: str,
     parent_ref: str,
     *,
-    version_blobs: list[tuple[str, str]] | None = None,
     runner=run_command,
 ) -> dict[str, object]:
     """Capture the current worktree state of `paths` into a side branch commit.
@@ -625,14 +641,6 @@ def snapshot_branch(
             added = runner(["git", "add", "--", *paths], cwd=cwd, env=env)
             if not added.ok:
                 return stop("snapshot_failed", f"git add failed: {added.stderr}")
-        for rel, blob in version_blobs or []:
-            injected = runner(
-                ["git", "update-index", "--add", "--cacheinfo", f"100644,{blob},{rel}"],
-                cwd=cwd,
-                env=env,
-            )
-            if not injected.ok:
-                return stop("snapshot_failed", f"git update-index failed: {injected.stderr}")
         tree_result = runner(["git", "write-tree"], cwd=cwd, env=env)
         if not tree_result.ok:
             return stop("snapshot_failed", f"git write-tree failed: {tree_result.stderr}")

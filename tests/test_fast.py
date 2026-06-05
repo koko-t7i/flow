@@ -19,11 +19,12 @@ class FastModeTest(unittest.TestCase):
         (task_root / ".codex").mkdir()
         (task_root / ".codex" / "localflow.toml").write_text(
             config_text
-            or """
+            or """\
+version = 1
 base_branch = "main"
-
-[validation]
-pre_commit = ["git diff --check"]
+remote_cli = "none"
+passphrase = "file:passphrase"
+default_mode = "fast"
 """,
             encoding="utf-8",
         )
@@ -51,7 +52,6 @@ pre_commit = ["git diff --check"]
             ("git", "merge", "--ff-only", "origin/main"): [ok([])],
             ("git", "rebase", "main"): [ok([])],
             ("git", "rev-list", "--count", "main..HEAD"): [ok([], "1")],
-            ("shell", "git diff --check"): [ok([]), ok([])],
             ("git", "rev-parse", "HEAD"): [ok([], "abc123")],
             ("git", "merge", "--ff-only", branch): [ok([])],
             ("git", "rev-list", "--left-right", "--count", "origin/main...main"): [ok([], "0 1")],
@@ -127,19 +127,17 @@ pre_commit = ["git diff --check"]
         self.assertNotIn(("git", "rebase", "main"), runner.calls)
         self.assertNotIn(("git", "merge", "--ff-only", "feat/example"), runner.calls)
 
-    def test_fast_reports_post_merge_check_failure_without_cleanup(self):
+    def test_fast_stops_when_rebase_leaves_dirty_worktree(self):
         task_root, main_root = self.make_repo()
         responses = self.linked_responses(task_root, main_root)
-        responses[("shell", "git diff --check")] = [ok([]), fail([], "whitespace")]
+        responses[("git", "status", "--porcelain")] = [ok([], ""), ok([], ""), ok([], " M localflow/SKILL.md")]
         runner = FakeRunner(responses)
 
         result = fast.run(task_root, "codex", runner)
 
         self.assertFalse(result["ok"])
-        self.assertEqual(result["stop_reason"], "post_merge_checks_failed")
-        self.assertEqual(result["action"], "fast_landed")
-        self.assertEqual(result["cleanup"], "not_run")
-        self.assertIn(("git", "merge", "--ff-only", "feat/example"), runner.calls)
+        self.assertEqual(result["stop_reason"], "dirty_after_rebase")
+        self.assertNotIn(("git", "merge", "--ff-only", "feat/example"), runner.calls)
         self.assertFalse(any(call[:3] == ("git", "worktree", "remove") for call in runner.calls))
 
 

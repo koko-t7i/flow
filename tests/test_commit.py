@@ -7,12 +7,19 @@ from helpers import FakeRunner, fail, load_script, ok, repo_flow
 
 
 commit = load_script("commit")
+DEFAULT_CONFIG = """\
+version = 1
+base_branch = "main"
+remote_cli = "gh"
+passphrase = "file:passphrase"
+default_mode = "tree"
+"""
 
 GH_VIEW_FIELDS = "number,state,url,headRefName,baseRefName,headRefOid,mergeStateStatus,statusCheckRollup,isDraft,title"
 
 
 class CommitModeTest(unittest.TestCase):
-    def make_repo(self, config_text='base_branch = "main"\n'):
+    def make_repo(self, config_text=DEFAULT_CONFIG):
         temp = tempfile.TemporaryDirectory()
         root = Path(temp.name)
         (root / ".codex").mkdir()

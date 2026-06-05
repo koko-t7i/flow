@@ -21,14 +21,8 @@ Reject claims that are broader than the evidence. A passing test does not prove 
 
 ## Task-Appropriate Validation
 
-If repository config defines `[validation]`, use the matching command list before falling back to the defaults below:
-
-- `docs`: documentation, skill, and workflow-only changes
-- `code`: runtime behavior or script changes
-- `config`: configuration/schema changes
-- `pre_commit`: final required checks before commit when present
-
-Run configured commands from the repository root. If a configured command is missing, unsafe, or clearly unrelated to the staged change, stop and report the config problem instead of inventing a substitute.
+Choose validation from the changed surface and repository conventions; localflow
+config no longer carries executable validation commands.
 
 Use TDD when the task changes code behavior and a meaningful failing test can be written. Confirm the expected failure, implement the smallest fix, rerun, then refactor only when it improves the current change.
 
