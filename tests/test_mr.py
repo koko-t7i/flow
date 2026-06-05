@@ -130,6 +130,7 @@ remote_provider = "gitlab"
         responses[("glab", "auth", "status", "--hostname", "git.aurtech.cc")] = [ok([])]
         responses[("gh", "auth", "status", "--hostname", "git.aurtech.cc")] = [fail([])]
         responses[("glab", "mr", "view", "feat/example", "--output", "json")] = [ok([], json.dumps(review))]
+        responses[("git", "rev-parse", "HEAD")] = [ok([], "abc123")]
         runner = FakeRunner(responses)
 
         result = mr.run(root, "codex", runner)
@@ -186,6 +187,7 @@ pre_commit = [
                 "number,state,url,headRefName,baseRefName,headRefOid,mergeStateStatus,statusCheckRollup,isDraft,title",
             )
         ] = [ok([], json.dumps(review))]
+        responses[("git", "rev-parse", "HEAD")] = [ok([], "abc123")]
         runner = FakeRunner(responses)
 
         result = mr.run(root, "codex", runner)
@@ -193,6 +195,47 @@ pre_commit = [
         self.assertTrue(result["ok"])
         self.assertEqual(result["action"], "status")
         self.assertEqual(result["url"], review["url"])
+        self.assertFalse(any(call[:3] == ("gh", "pr", "create") for call in runner.calls))
+        self.assertFalse(any(call[:2] == ("git", "push") for call in runner.calls))
+
+    def test_existing_pr_with_new_head_runs_checks_and_pushes(self):
+        root = self.make_repo(
+            """
+base_branch = "main"
+
+[validation]
+pre_commit = ["git diff --check"]
+"""
+        )
+        old_review = {
+            "number": 7,
+            "state": "OPEN",
+            "url": "https://github.com/koko-t7i/example/pull/7",
+            "headRefOid": "abc123",
+        }
+        updated_review = {**old_review, "headRefOid": "def456"}
+        responses = self.base_responses(root)
+        view_key = (
+            "gh",
+            "pr",
+            "view",
+            "feat/example",
+            "--json",
+            "number,state,url,headRefName,baseRefName,headRefOid,mergeStateStatus,statusCheckRollup,isDraft,title",
+        )
+        responses[view_key] = [ok([], json.dumps(old_review)), ok([], json.dumps(updated_review))]
+        responses[("git", "rev-parse", "HEAD")] = [ok([], "def456")]
+        responses[("shell", "git diff --check")] = [ok([])]
+        responses[("git", "push", "-u", "origin", "feat/example")] = [ok([])]
+        runner = FakeRunner(responses)
+
+        result = mr.run(root, "codex", runner)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["action"], "updated")
+        self.assertEqual(result["head_sha"], "def456")
+        self.assertIn(("shell", "git diff --check"), runner.calls)
+        self.assertIn(("git", "push", "-u", "origin", "feat/example"), runner.calls)
         self.assertFalse(any(call[:3] == ("gh", "pr", "create") for call in runner.calls))
 
     def test_github_create_uses_fixed_title_body_and_push(self):

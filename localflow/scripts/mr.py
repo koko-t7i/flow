@@ -100,15 +100,43 @@ def run(cwd: Path, host: str, runner=flow.run_command) -> dict[str, object]:
 
     existing = flow.find_review(root, provider, branch, runner)
     if existing:
+        local_head = flow.head_sha(root, runner)
+        state = flow.normalize_review_state(existing)
+        if state != "open" or (local_head and existing.get("headRefOid") == local_head):
+            data = {
+                "ok": True,
+                "action": "status",
+                "provider": provider,
+                "base_branch": base_name,
+                "branch": branch,
+                "url": existing.get("url"),
+                "state": state,
+                "head_sha": existing.get("headRefOid"),
+                "config_path": config_path,
+            }
+            return flow.attach_outputs("mr", data)
+
+        checks_ok, checks = flow.run_checks(root, config, runner)
+        if not checks_ok:
+            data = flow.stop("checks_failed", "Configured pre-commit checks failed.", checks=checks)
+            return flow.attach_outputs("mr", data)
+
+        push = flow.push_branch(root, remote, branch, url, runner)
+        if not push.ok:
+            data = flow.stop("push_failed", "Could not push the task branch.", stderr=push.stderr, checks=checks)
+            return flow.attach_outputs("mr", data)
+
+        review = flow.find_review(root, provider, branch, runner) or existing
         data = {
             "ok": True,
-            "action": "status",
+            "action": "updated",
             "provider": provider,
             "base_branch": base_name,
             "branch": branch,
-            "url": existing.get("url"),
-            "state": flow.normalize_review_state(existing),
-            "head_sha": existing.get("headRefOid"),
+            "url": review.get("url"),
+            "state": flow.normalize_review_state(review),
+            "head_sha": review.get("headRefOid") or local_head,
+            "checks": checks,
             "config_path": config_path,
         }
         return flow.attach_outputs("mr", data)
