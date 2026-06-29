@@ -1,4 +1,4 @@
 interface:
   display_name: "Localflow"
   short_description: "本地仓库 flow skill"
-  default_prompt: "Use $localflow as a repository flow skill: understand, orient, assign the right agent when useful, isolate when useful, implement, verify, commit task-owned paths, deliver, and clean up only safe landed work. Use minimal repo checks. Do not use legacy subcommands, helper scripts, repo-local config, or git add . Ask before destructive git actions."
+  default_prompt: "Use $localflow as a repository flow skill: understand, orient, assign the right agent when useful, isolate when useful, implement, verify, commit task-owned paths, deliver, and clean up only safe landed work. Use minimal repo checks. Stage task-owned paths only. Ask before destructive git actions."

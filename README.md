@@ -4,8 +4,7 @@ Localflow is a repository flow skill for coding agents. It keeps local work smal
 understand the goal, inspect only what matters, assign the right agent when useful,
 isolate when useful, implement, verify, commit, deliver, and clean up only when appropriate.
 
-Version 2 is intentionally lean: one semantic entrypoint, no legacy subcommands, no helper
-scripts, and no repo-local workflow config.
+Version 2 is intentionally lean: one semantic entrypoint focused on the repository flow.
 
 ## Entry
 
@@ -38,7 +37,7 @@ Examples:
 4. **Isolate** — use current checkout by default; create branch/worktree only when safer.
 5. **Implement** — edit task-owned files and preserve user work.
 6. **Verify** — run focused checks, broader checks when needed.
-7. **Commit** — stage only task paths, never `git add .`, use English Conventional Commit.
+7. **Commit** — stage only task paths and use English Conventional Commit.
 8. **Deliver** — create review or land locally when appropriate.
 9. **Clean up** — remove only landed or explicitly abandoned resources.
 
@@ -46,7 +45,6 @@ Examples:
 
 - Prefer narrow commands over broad probes.
 - Assign agents by task shape; keep final git and delivery responsibility in the current agent.
-- Do not require localflow config.
 - Do not default to isolated worktrees.
 - Do not pre-list reviews or poll CI unless needed.
 - Require approval for merge, force push, reset, branch deletion, worktree removal, and remote ref deletion.

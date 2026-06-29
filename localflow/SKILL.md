@@ -1,6 +1,6 @@
 ---
 name: localflow
-description: "Use for repository tasks that should move through a safe local flow: understand, orient, assign the right agent, isolate when needed, implement, verify, commit, deliver, and clean up. Single semantic entrypoint; no helper scripts or repo-local config."
+description: "Use for repository tasks that should move through a safe local flow: understand, orient, assign the right agent, isolate when needed, implement, verify, commit, deliver, and clean up."
 ---
 
 # Localflow
@@ -9,7 +9,7 @@ Localflow is a repository flow skill. It is not a command toolkit.
 
 Use it to move a repo task through one safe loop with minimal commands, repo-specific judgment, and automatic agent assignment when useful.
 
-One public entrypoint: `/localflow` or `$localflow`. Treat user text as the goal, not as subcommands. Do not look for localflow config. Do not call localflow helper scripts.
+One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo goal.
 
 ## Flow
 
@@ -47,7 +47,7 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the goal
 
 7. **Commit**
    - Inspect final diff.
-   - Stage only task-owned paths. Never use `git add .`.
+   - Stage only task-owned paths.
    - Inspect staged diff.
    - Use an English Conventional Commit subject.
    - Exclude secrets, generated junk, unrelated edits, and AI/tool attribution.
