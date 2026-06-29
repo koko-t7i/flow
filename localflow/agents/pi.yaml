@@ -1,4 +1,4 @@
 interface:
   display_name: "Localflow"
-  short_description: "本地环境检查、tree/fast 流程、提交、MR 与清理"
-  default_prompt: "Use /localflow for this repo change: run `/localflow check` when local CLI/auth/permission capability matters, `/localflow tree` for isolated-worktree MR/PR review, `/localflow fast` to land a committed task worktree into the local base without pushing or cleaning, `/localflow mr` to create or inspect the current branch MR/PR, and `/localflow clean` only when cleanup is explicitly desired after landing. Otherwise clarify unclear requirements first, default to an isolated task worktree, verify, commit, and deliver safely."
+  short_description: "本地仓库 flow skill"
+  default_prompt: "Use /localflow as a repository flow skill: understand, orient, assign the right agent when useful, isolate when useful, implement, verify, commit task-owned paths, deliver, and clean up only safe landed work. Use minimal repo checks. Do not use legacy subcommands, helper scripts, repo-local config, or git add . Ask before destructive git actions."

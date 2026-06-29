@@ -1,173 +1,67 @@
 # Localflow
 
-Localflow is a local repository workflow for agents that need to make scoped
-changes without dirtying the user's main checkout. It keeps the base branch
-clean, moves implementation into task branches/worktrees, runs repository
-checks, and delivers through review or local integration.
+Localflow is a repository flow skill for coding agents. It keeps local work small and safe:
+understand the goal, inspect only what matters, assign the right agent when useful,
+isolate when useful, implement, verify, commit, deliver, and clean up only when appropriate.
 
-The same source tree is packaged as:
+Version 2 is intentionally lean: one semantic entrypoint, no legacy subcommands, no helper
+scripts, and no repo-local workflow config.
 
-- a Claude Code plugin with `/localflow:<subcommand>` (each subcommand is its
-  own slash command, plus a free-form `/localflow:localflow` entry)
-- a Codex skill with `$localflow`
-- a pi skill with `/localflow`
+## Entry
 
-Use it for work that may need branch selection, validation, commit creation,
-push/auth recovery, MR/PR creation, or cleanup after landing. Do not use it for
-one-off shell commands or explanation-only test runs unless they are part of
-delivering a code change.
-
-## What It Does
-
-Localflow turns a repository task into a repeatable lifecycle:
-
-1. Resolve the repository config and long-lived base branch.
-2. Work on a dedicated task branch, usually in an isolated linked worktree.
-3. Stage only explicitly named files.
-4. Write an English Conventional Commit.
-5. Run configured checks before delivery.
-6. Open or update a GitHub PR / GitLab MR, or land locally in `fast` mode.
-7. Clean only already-landed branches, worktrees, and remotes when asked.
-
-It is intentionally conservative:
-
-- It does not edit directly on `main`, `test`, or `dev` for implementation work.
-- It does not use `git add .`.
-- It does not clean worktrees or branches automatically after review creation.
-- It does not merge MR/PRs without explicit approval.
-- It does not print, commit, or snapshot secrets.
-
-## Workflow Modes
-
-`tree` is the default. `fast` still uses a task branch and isolated worktree;
-it only changes the delivery path.
-
-Use `tree` for normal feature/fix work that should be reviewed remotely. It
-creates a task branch in an isolated worktree, commits scoped files, and opens
-or updates an MR/PR.
-
-Use `fast` when multiple local tasks need quick integration without remote
-review. It rebases and fast-forward merges a clean committed task branch into
-the local base branch. It does not push, open review, or clean.
-
-Use `mr --snapshot` when a shared checkout must stay live, for example one
-frontend preview while multiple agents edit the same directory. It captures
-only named `--paths` into a side branch without touching the working tree,
-index, or `HEAD`.
-
-Use `clean` after a branch, worktree, or remote has landed. It deletes only safe
-landed leftovers and skips open, dirty, mismatched, or unowned candidates.
-
-## Commands
-
-Claude Code (each subcommand is its own slash command):
+Claude Code and pi:
 
 ```text
-/localflow:check
-/localflow:tree
-/localflow:fast
-/localflow:mr
-/localflow:commit
-/localflow:clean
-/localflow:localflow <describe the change to deliver>
+/localflow <goal or task>
 ```
 
 Codex:
 
 ```text
-$localflow check
-$localflow tree
-$localflow fast
-$localflow mr
-$localflow commit
-$localflow clean
-$localflow <describe the change to deliver>
+$localflow <goal or task>
 ```
 
-Pi:
+Examples:
 
 ```text
-/localflow check
-/localflow tree
-/localflow fast
-/localflow mr
-/localflow commit
-/localflow clean
-/localflow <describe the change to deliver>
+/localflow fix login redirect and open a PR
+/localflow commit this README cleanup
+/localflow land this clean branch locally
+/localflow clean the merged task branch
 ```
 
-The deterministic scripts behind those commands live in `localflow/scripts/`.
-They write JSON and Markdown snapshots under `~/.cache/localflow/`.
+## Flow
 
-Common script entrypoints:
+1. **Understand** — clarify scope only when needed.
+2. **Orient** — inspect minimal repo state and relevant files.
+3. **Assign** — choose current agent, explorer, planner, or implementer by task shape.
+4. **Isolate** — use current checkout by default; create branch/worktree only when safer.
+5. **Implement** — edit task-owned files and preserve user work.
+6. **Verify** — run focused checks, broader checks when needed.
+7. **Commit** — stage only task paths, never `git add .`, use English Conventional Commit.
+8. **Deliver** — create review or land locally when appropriate.
+9. **Clean up** — remove only landed or explicitly abandoned resources.
 
-```bash
-uv run python ./localflow/scripts/check_environment.py --cwd "$PWD"
-uv run python ./localflow/scripts/commit.py --cwd "$PWD" --host codex \
-  --paths README.md --message "docs: update readme" --mr
-uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex
-uv run python ./localflow/scripts/fast.py --cwd "$PWD" --host codex
-uv run python ./localflow/scripts/clean.py --cwd "$PWD" --host codex
-```
+## Best Practices
 
-For shared-checkout delivery:
-
-```bash
-uv run python ./localflow/scripts/mr.py --cwd "$PWD" --host codex \
-  --snapshot --branch feat/live-preview \
-  --paths src/Preview.tsx src/hooks/usePreview.ts \
-  --type feat --summary "add live preview"
-```
-
-## Repository Config
-
-Projects can commit host-specific workflow defaults:
-
-```text
-.codex/localflow.toml
-.claude/localflow.toml
-.pi/localflow.toml
-```
-
-Codex reads `.codex/localflow.toml` first. Claude Code reads
-`.claude/localflow.toml` first. Pi reads `.pi/localflow.toml` first. The other
-files are fallbacks only; they are not merged.
-
-Current schema:
-
-```toml
-version = 1
-
-base_branch = "main"
-remote_cli = "gh"
-passphrase = "file:passphrase"
-default_mode = "tree"
-```
-
-Fields:
-
-- `base_branch`: long-lived branch to use as the base and return point.
-- `remote_cli`: `gh`, `glab`, or `none`.
-- `passphrase`: local ignored passphrase file beside the config file, usually
-  `file:passphrase`.
-- `default_mode`: `tree` or `fast`.
-
-If no config exists, or the selected config is old schema, localflow asks for
-these settings before the first delivery action instead of silently relying on
-heuristics.
+- Prefer narrow commands over broad probes.
+- Assign agents by task shape; keep final git and delivery responsibility in the current agent.
+- Do not require localflow config.
+- Do not default to isolated worktrees.
+- Do not pre-list reviews or poll CI unless needed.
+- Require approval for merge, force push, reset, branch deletion, worktree removal, and remote ref deletion.
+- Never read, print, store, or script secrets.
 
 ## Install
 
 ### Claude Code
-
-Install from this local marketplace:
 
 ```bash
 claude plugin marketplace add ./
 claude plugin install localflow@localflow
 ```
 
-Validate the plugin:
+Validate:
 
 ```bash
 claude plugin validate .
@@ -175,21 +69,17 @@ claude plugin validate .
 
 ### Codex
 
-Install by symlinking this repository's skill directory:
-
 ```bash
 ln -s "$PWD/localflow" "$HOME/.codex/skills/localflow"
 ```
 
-Validate the skill when the Codex system validator is available:
+When the Codex validator is available:
 
 ```bash
-uv run python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
+uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
 ```
 
 ### Pi
-
-Install by symlinking this repository's skill directory:
 
 ```bash
 ln -s "$PWD/localflow" "$HOME/.pi/skills/localflow"
@@ -197,59 +87,28 @@ ln -s "$PWD/localflow" "$HOME/.pi/skills/localflow"
 
 ## Development
 
-Run the full test suite:
-
 ```bash
-uv run python -m unittest discover -s tests
-```
-
-Run the standard validation set used before delivery:
-
-```bash
-uv run python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
 claude plugin validate .
+uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
 git diff --check
-uv run python -m unittest discover -s tests
+test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ```
 
-Refresh the local environment capability snapshot:
-
-```bash
-uv run python ./localflow/scripts/check_environment.py --cwd "$PWD"
-```
-
-Inspect environment-file candidates without printing secret values:
-
-```bash
-uv run python ./localflow/scripts/check_env_files.py --cwd "$PWD"
-```
-
-## Repository Layout
+## Layout
 
 ```text
 .
-├── .claude-plugin/           # Claude Code plugin + marketplace manifests
-├── .claude/localflow.toml    # Repo-local Claude Code workflow defaults
-├── .codex/localflow.toml     # Repo-local Codex workflow defaults
-├── .pi/localflow.toml        # Repo-local pi workflow defaults
-├── commands/                 # Claude Code slash commands (one per subcommand)
-├── skills/localflow          # Claude Code skill symlink -> ../localflow
-├── localflow/                # Shared skill source
-│   ├── SKILL.md              # Workflow entrypoint
-│   ├── agents/               # Host UI metadata (openai.yaml, pi.yaml)
-│   ├── references/           # Workflow modules loaded on demand
-│   └── scripts/              # Deterministic helper scripts
-└── tests/                    # Script tests
+├── .claude-plugin/
+├── commands/localflow.md
+├── localflow/
+│   ├── SKILL.md
+│   └── agents/
+├── skills/localflow -> ../localflow
+└── README.md
 ```
 
-## Cleanup
+## Breaking Changes In 2.0.0
 
-Cleanup is explicit. Run it only after the delivery unit has landed:
-
-```bash
-uv run python ./localflow/scripts/clean.py --cwd "$PWD" --host codex
-```
-
-On a task branch, `clean` removes only that landed branch/worktree. On a
-long-lived branch, it scans local branches, owned worktrees, and remote
-branches, then cleans only candidates that are already landed.
+- Removed legacy public subcommands: `check`, `tree`, `fast`, `commit`, `mr`, and `clean`.
+- Removed old helper scripts, split reference docs, repo-local config schema, and script tests.
+- Replaced scripted routing with one flow skill.
