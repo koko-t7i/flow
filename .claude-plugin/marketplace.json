@@ -1,9 +1,9 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "localflow",
-  "description": "Local repository workflow skills for Claude Code.",
+  "description": "Repository flow skill for Claude Code with semantic entrypoint and agent assignment.",
   "metadata": {
-    "description": "Local repository workflow skills for Claude Code."
+    "description": "One-entry repository flow skill for scoped local changes, agent assignment, validation, delivery, and cleanup."
   },
   "owner": {
     "name": "koko-t7i",
@@ -12,7 +12,7 @@
   "plugins": [
     {
       "name": "localflow",
-      "description": "Run a scoped local repo workflow through checks, review, commit, push, and cleanup.",
+      "description": "Guide repository work through a safe local flow with agent assignment.",
       "source": "./",
       "category": "productivity"
     }

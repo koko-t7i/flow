@@ -1,7 +1,7 @@
 {
   "name": "localflow",
-  "version": "1.0.1",
-  "description": "Local repository workflow for scoped changes, tests, review, commits, pushes, and safe cleanup.",
+  "version": "2.0.0",
+  "description": "Repository flow skill for safe scoped changes with automatic agent assignment, validation, delivery, and cleanup.",
   "author": {
     "name": "koko-t7i",
     "url": "https://github.com/koko-t7i"
