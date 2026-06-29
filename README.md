@@ -36,7 +36,7 @@ Examples:
 3. **Assign** — choose current agent, explorer, planner, or implementer by task shape.
 4. **Isolate** — use current checkout by default; create branch/worktree only when safer.
 5. **Implement** — edit task-owned files and preserve user work.
-6. **Verify** — run focused checks, broader checks when needed.
+6. **Verify** — prove the change satisfies the goal with the smallest useful checks.
 7. **Commit** — stage only task paths and use English Conventional Commit.
 8. **Deliver** — create review or land locally when appropriate.
 9. **Clean up** — remove only landed or explicitly abandoned resources.

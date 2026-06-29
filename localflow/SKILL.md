@@ -41,9 +41,10 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
    - Follow repository conventions over generic preferences.
 
 6. **Verify**
-   - Run focused checks tied to changed code.
-   - Run broad checks only when cheap, required, or needed before delivery.
-   - Report checks skipped and why.
+   - Prove the change satisfies the goal.
+   - Run the smallest useful checks first.
+   - Expand to broader checks when risk, repo policy, or delivery requires it.
+   - Report skipped checks and remaining risk.
 
 7. **Commit**
    - Inspect final diff.
