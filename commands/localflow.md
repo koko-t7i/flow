@@ -17,7 +17,7 @@ Baseline:
 
 - Minimal repo/tool checks only.
 - Assign agents by task shape; current agent owns final git/delivery decisions.
-- Current checkout by default; branch/worktree only when safer.
+- Keep normal work on the current environment branch (`main`, `test`, or `dev`); branch/worktree only for isolation or delivery.
 - Stage task-owned paths only.
 - Preserve unrelated user changes.
 - Ask before destructive or irreversible git actions.

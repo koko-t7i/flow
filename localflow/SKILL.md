@@ -31,9 +31,10 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
    - The current agent owns final decisions, git state, verification, commit, delivery, and cleanup.
 
 4. **Isolate when useful**
-   - Prefer current checkout for small, safe work.
-   - Create a task branch for normal implementation or review delivery.
-   - Create a worktree only when it protects user work, avoids branch-switch disruption, or helps parallel/risky work.
+   - Keep normal implementation on the current environment branch, usually `main`, `test`, or `dev`.
+   - Use a task branch or worktree only when review delivery, repo policy, dirty state, parallel work, or risk needs isolation.
+   - Treat branch/worktree creation as an isolation or delivery choice, not the default development path.
+   - Ask before switching away from an environment branch when the target branch is unclear.
 
 5. **Implement**
    - Edit task-owned files only.
@@ -55,8 +56,8 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
 
 8. **Deliver**
    - Deliver according to repo norms and user intent.
-   - For review, push intended branch and create/update one branch-specific PR/MR with concise verification evidence.
-   - For local landing, merge/rebase only clean verified work into intended base.
+   - For review, create or update a delivery branch only when needed, using task-owned changes and concise verification evidence.
+   - For local landing, keep the intended environment branch clean and verified.
    - Merge and force push require explicit approval.
 
 9. **Clean up**
@@ -83,4 +84,4 @@ Stop and ask when scope, ownership, target branch, destructive action, auth reco
 
 ## Report
 
-End with concise evidence: agent assignment, files changed, branch/worktree choice, checks, commit, delivery, cleanup, skipped checks, and remaining risk.
+End with concise evidence: agent assignment, environment branch, any branch/worktree choice, files changed, checks, commit, delivery, cleanup, skipped checks, and remaining risk.

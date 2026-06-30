@@ -34,7 +34,7 @@ Examples:
 1. **Understand** — clarify scope only when needed.
 2. **Orient** — inspect minimal repo state and relevant files.
 3. **Assign** — choose current agent, explorer, planner, or implementer by task shape.
-4. **Isolate** — use current checkout by default; create branch/worktree only when safer.
+4. **Isolate** — keep normal work on `main`, `test`, or `dev`; branch/worktree only for isolation or delivery.
 5. **Implement** — edit task-owned files and preserve user work.
 6. **Verify** — prove the change satisfies the goal with the smallest useful checks.
 7. **Commit** — stage only task paths and use English Conventional Commit.
@@ -45,7 +45,7 @@ Examples:
 
 - Prefer narrow commands over broad probes.
 - Assign agents by task shape; keep final git and delivery responsibility in the current agent.
-- Do not default to isolated worktrees.
+- Keep environment branches as the default development location.
 - Do not pre-list reviews or poll CI unless needed.
 - Require approval for merge, force push, reset, branch deletion, worktree removal, and remote ref deletion.
 - Never read, print, store, or script secrets.
