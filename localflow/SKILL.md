@@ -14,13 +14,16 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
 ## Flow
 
 1. **Understand**
-   - Identify goal, scope, acceptance criteria, and non-goals.
-   - Ask only when missing context blocks safe work.
+   - Inspect local context before asking.
+   - Identify goal, acceptance criteria, scope, non-goals, constraints, and blockers.
+   - Ask only for gaps that change direction, acceptance, risk, or delivery.
 
 2. **Orient**
-   - Inspect minimal state: branch/status, relevant files, and project conventions.
-   - Check tools, auth, remotes, or CI only when current work needs them.
-   - Infer base/target branch from repo state and user intent.
+   - Inspect minimal state: branch, status, worktrees, dirty-file ownership, relevant files, and project conventions.
+   - Choose the environment branch as base and delivery target; normally `main`, `test`, or `dev`.
+   - Probe tools, auth, remotes, services, or CI only when the current work needs them.
+   - Treat installed/configured/authenticated/permissioned as separate facts.
+   - Keep `origin` stable unless the user explicitly asks to change it.
 
 3. **Assign agent**
    - Keep simple, local, low-risk work in the current agent.
@@ -34,20 +37,29 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
    - Keep the original repository checkout on its environment branch, usually `main`, `test`, or `dev`.
    - Use a linked worktree as the default implementation workspace.
    - Create the linked worktree from the target environment branch, and keep that branch as the base and delivery target.
-   - If implementation needs a feature or delivery branch, create it only inside the linked worktree.
-   - If Git cannot check out the same environment branch in multiple worktrees, use a task branch or detached checkout inside the linked worktree.
+   - Create feature or delivery branches only inside linked worktrees, and only when implementation, review, or repo policy needs one.
+   - Avoid nested worktrees.
+   - If existing dirty files may belong to the task, confirm ownership before moving or recreating them in the linked worktree.
    - Sync required local environment files into the linked worktree before running tests or app commands.
+   - Preserve env-file relative paths and relevant permissions; confirm they are ignored before use.
+   - If required env files are missing from the source checkout, inspect same-repository sibling worktrees before declaring services unavailable.
    - Never switch the original repository checkout away from its environment branch unless the user explicitly asks.
 
 5. **Implement**
    - Edit task-owned files only.
    - Preserve unrelated user changes.
    - Follow repository conventions over generic preferences.
+   - Avoid unrelated refactors, formatting churn, generated noise, logs, artifacts, and temporary files.
 
 6. **Verify**
-   - Prove the change satisfies the goal.
+   - Prove the change satisfies the goal and acceptance criteria.
+   - Use fresh evidence from the current worktree before claiming success.
    - Run the smallest useful checks first.
    - Expand to broader checks when risk, repo policy, or delivery requires it.
+   - Treat tests passed as check evidence, not automatic proof of acceptance.
+   - Treat subagent reports as advice; inspect the evidence before relying on them.
+   - Review the final diff for task boundary, regressions, validation gaps, generated files, secrets, env files, logs, and artifacts.
+   - Fix failures caused by the task; record unrelated failures without expanding scope unless asked.
    - Report skipped checks and remaining risk.
 
 7. **Commit**
@@ -55,38 +67,48 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
    - Stage only task-owned paths.
    - Inspect staged diff.
    - Use an English Conventional Commit subject.
-   - Exclude secrets, generated junk, unrelated edits, and AI/tool attribution.
+   - Keep commit content and message aligned with the staged diff.
+   - Make a version decision when shipped behavior, public commands, APIs, install/update behavior, package contents, or released capability changes.
+   - Exclude secrets, env files, generated junk, unrelated edits, and AI/tool attribution.
+   - After a review branch is pushed, append follow-up commits unless the user explicitly approves rewriting history.
 
 8. **Deliver**
    - Deliver according to repo norms and user intent.
-   - For review, create or update a delivery branch only when needed, using task-owned changes and concise verification evidence.
-   - For local landing, keep the intended environment branch clean and verified.
+   - For review, create or update a delivery branch inside the linked worktree when needed, using task-owned changes and concise verification evidence.
+   - Push only intended branches.
+   - Prefer direct review creation over pre-listing reviews; inspect existing review only when creation reports one already exists.
+   - Avoid broad CI polling; check by commit SHA when CI evidence is required and not already reported.
+   - Recover auth without exposing secrets; use HTTPS fallback only with existing credentials or explicit authorization.
+   - Keep the intended environment branch clean and verified for local landing.
    - Merge and force push require explicit approval.
 
 9. **Clean up**
    - Cleanup is separate from delivery.
+   - Keep linked worktrees and local delivery branches for review fixes until remote review has landed.
    - Remove only merged, landed, or explicitly abandoned resources.
    - Name exact branches, worktrees, or remote refs before deletion.
-   - Never delete dirty, unknown, or unmerged work.
+   - Never delete dirty, unknown, unowned, or unmerged work.
+   - Prune worktrees only when stale entries are detected or after failed/aborted worktree operations.
 
 ## Best Practices
 
 - Prefer narrow commands over broad probes.
 - Assign agents by task shape, not by habit; do not delegate trivial work.
 - Give delegated agents narrow prompts, clear scope, expected outputs, and file boundaries.
-- Treat subagent findings as advice; verify before editing or delivery.
 - Avoid default environment sweeps, fetch loops, review list scans, and CI polling.
 - Copy only needed env files or templates into linked worktrees; preserve permissions when relevant.
-- Never print, stage, commit, or upload secret values from env files.
+- Never print, stage, commit, upload, or snapshot secret values from env files.
+- Never read, print, store, upload, or script private keys, tokens, passphrases, or secret env values.
+- Public key upload changes account security state and requires explicit approval.
 - Use review CLIs only when review work needs them.
-- Use snapshot-style delivery only for shared live checkouts; include exact task paths only.
-- Treat reset, rebase, merge, force push, branch deletion, worktree removal, and remote ref deletion as high risk.
-- Never read, print, store, or script private keys, tokens, passphrases, or secret env values.
+- Use snapshot-style delivery only for shared live checkouts; include exact task paths only and leave working tree, index, and HEAD untouched.
+- Treat reset, restore, clean, rebase, merge, force push, branch deletion, worktree removal, remote ref deletion, and repository `rm -rf` as high risk.
+- Before destructive actions, state the current branch, exact command, affected files/resources, and expected data loss or cleanup effect; wait for approval.
 
 ## Stop
 
-Stop and ask when scope, ownership, target branch, required env files, destructive action, auth recovery, failing required checks, delivery target, or agent boundary cannot be resolved safely.
+Stop and ask when safe implementation remains unclear, acceptance criteria conflict, scope or ownership is unclear, environment branch cannot be chosen, worktree isolation cannot be created, required env files are unavailable, auth recovery would expose secrets, task-related checks fail, delivery target is unclear, destructive action lacks approval, cleanup ownership is unclear, or agent boundary cannot be resolved safely.
 
 ## Report
 
-End with concise evidence: agent assignment, environment branch, worktree path, any delivery branch, files changed, checks, commit, delivery, cleanup, skipped checks, and remaining risk.
+End with concise evidence: agent assignment, environment branch, worktree path, any delivery branch, files changed, checks, version decision, commit, delivery, cleanup, skipped checks, unrelated failures, and remaining risk.

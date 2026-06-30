@@ -49,9 +49,12 @@ Examples:
 - Use linked worktrees as the default implementation workspace.
 - Create feature or delivery branches only inside linked worktrees.
 - Sync required env files into linked worktrees without printing or staging secrets.
-- Do not pre-list reviews or poll CI unless needed.
-- Require approval for merge, force push, reset, branch deletion, worktree removal, and remote ref deletion.
-- Never read, print, store, or script secrets.
+- Verify with fresh evidence from the current worktree before claiming success.
+- Stage only task-owned files and inspect the staged diff before commit.
+- Keep commits English Conventional Commit; make version decisions for shipped behavior changes.
+- Prefer direct review creation over pre-listing reviews; avoid broad CI polling.
+- Require approval for merge, force push, reset, branch deletion, worktree removal, remote ref deletion, and destructive cleanup.
+- Never read, print, store, upload, or script secrets.
 
 ## Install
 
