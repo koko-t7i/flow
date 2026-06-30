@@ -2,7 +2,7 @@
 
 Localflow is a repository flow skill for coding agents. It keeps local work small and safe:
 understand the goal, inspect only what matters, assign the right agent when useful,
-isolate when useful, implement, verify, commit, deliver, and clean up only when appropriate.
+prepare a worktree, implement, verify, commit, deliver, and clean up only when appropriate.
 
 Version 2 is intentionally lean: one semantic entrypoint focused on the repository flow.
 
@@ -34,7 +34,7 @@ Examples:
 1. **Understand** — clarify scope only when needed.
 2. **Orient** — inspect minimal repo state and relevant files.
 3. **Assign** — choose current agent, explorer, planner, or implementer by task shape.
-4. **Isolate** — keep normal work on `main`, `test`, or `dev`; branch/worktree only for isolation or delivery.
+4. **Prepare worktree** — keep the original checkout on `main`, `test`, or `dev`; work in a linked worktree with required env files.
 5. **Implement** — edit task-owned files and preserve user work.
 6. **Verify** — prove the change satisfies the goal with the smallest useful checks.
 7. **Commit** — stage only task paths and use English Conventional Commit.
@@ -45,7 +45,10 @@ Examples:
 
 - Prefer narrow commands over broad probes.
 - Assign agents by task shape; keep final git and delivery responsibility in the current agent.
-- Keep environment branches as the default development location.
+- Keep the original repository checkout on its environment branch.
+- Use linked worktrees as the default implementation workspace.
+- Create feature or delivery branches only inside linked worktrees.
+- Sync required env files into linked worktrees without printing or staging secrets.
 - Do not pre-list reviews or poll CI unless needed.
 - Require approval for merge, force push, reset, branch deletion, worktree removal, and remote ref deletion.
 - Never read, print, store, or script secrets.

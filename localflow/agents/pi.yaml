@@ -1,4 +1,4 @@
 interface:
   display_name: "Localflow"
   short_description: "本地仓库 flow skill"
-  default_prompt: "Use /localflow as a repository flow skill: understand, orient, assign the right agent when useful, keep normal work on the environment branch, isolate only when needed, implement, verify, commit task-owned paths, deliver, and clean up only safe landed work. Use minimal repo checks. Stage task-owned paths only. Ask before destructive git actions."
+  default_prompt: "Use /localflow as a repository flow skill: understand, orient, assign the right agent when useful, keep the original checkout on its environment branch, use a linked worktree by default for implementation, sync required env files before tests, verify, commit task-owned paths, deliver, and clean up only safe landed work. Create feature or delivery branches only inside linked worktrees when needed. Use minimal repo checks. Stage task-owned paths only. Ask before destructive git actions."

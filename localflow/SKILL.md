@@ -1,6 +1,6 @@
 ---
 name: localflow
-description: "Use for repository tasks that should move through a safe local flow: understand, orient, assign the right agent, isolate when needed, implement, verify, commit, deliver, and clean up."
+description: "Use for repository tasks that should move through a safe local flow: understand, orient, assign the right agent, prepare a worktree, implement, verify, commit, deliver, and clean up."
 ---
 
 # Localflow
@@ -30,11 +30,14 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
    - Run agents in parallel only for independent read-only exploration or clearly separated work.
    - The current agent owns final decisions, git state, verification, commit, delivery, and cleanup.
 
-4. **Isolate when useful**
-   - Keep normal implementation on the current environment branch, usually `main`, `test`, or `dev`.
-   - Use a task branch or worktree only when review delivery, repo policy, dirty state, parallel work, or risk needs isolation.
-   - Treat branch/worktree creation as an isolation or delivery choice, not the default development path.
-   - Ask before switching away from an environment branch when the target branch is unclear.
+4. **Prepare worktree**
+   - Keep the original repository checkout on its environment branch, usually `main`, `test`, or `dev`.
+   - Use a linked worktree as the default implementation workspace.
+   - Create the linked worktree from the target environment branch, and keep that branch as the base and delivery target.
+   - If implementation needs a feature or delivery branch, create it only inside the linked worktree.
+   - If Git cannot check out the same environment branch in multiple worktrees, use a task branch or detached checkout inside the linked worktree.
+   - Sync required local environment files into the linked worktree before running tests or app commands.
+   - Never switch the original repository checkout away from its environment branch unless the user explicitly asks.
 
 5. **Implement**
    - Edit task-owned files only.
@@ -73,6 +76,8 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
 - Give delegated agents narrow prompts, clear scope, expected outputs, and file boundaries.
 - Treat subagent findings as advice; verify before editing or delivery.
 - Avoid default environment sweeps, fetch loops, review list scans, and CI polling.
+- Copy only needed env files or templates into linked worktrees; preserve permissions when relevant.
+- Never print, stage, commit, or upload secret values from env files.
 - Use review CLIs only when review work needs them.
 - Use snapshot-style delivery only for shared live checkouts; include exact task paths only.
 - Treat reset, rebase, merge, force push, branch deletion, worktree removal, and remote ref deletion as high risk.
@@ -80,8 +85,8 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
 
 ## Stop
 
-Stop and ask when scope, ownership, target branch, destructive action, auth recovery, failing required checks, delivery target, or agent boundary cannot be resolved safely.
+Stop and ask when scope, ownership, target branch, required env files, destructive action, auth recovery, failing required checks, delivery target, or agent boundary cannot be resolved safely.
 
 ## Report
 
-End with concise evidence: agent assignment, environment branch, any branch/worktree choice, files changed, checks, commit, delivery, cleanup, skipped checks, and remaining risk.
+End with concise evidence: agent assignment, environment branch, worktree path, any delivery branch, files changed, checks, commit, delivery, cleanup, skipped checks, and remaining risk.
