@@ -1,8 +1,8 @@
 # Localflow
 
 Localflow is a repository flow skill for coding agents. It keeps local work small and safe:
-understand the goal, inspect only what matters, assign the right agent when useful,
-prepare a worktree, implement, verify, commit, deliver, and clean up only when appropriate.
+understand the goal, inspect only what matters, implement, verify, and report. It adds agents,
+worktrees, commits, delivery, and cleanup only when the task actually needs them.
 
 Version 2 is intentionally lean: one semantic entrypoint focused on the repository flow.
 
@@ -33,25 +33,29 @@ Examples:
 
 1. **Understand** — clarify scope only when needed.
 2. **Orient** — inspect minimal repo state and relevant files.
-3. **Assign** — choose current agent, explorer, planner, or implementer by task shape.
-4. **Prepare worktree** — keep the original checkout on `main`, `test`, or `dev`; work in a linked worktree with required env files.
-5. **Implement** — edit task-owned files and preserve user work.
-6. **Verify** — prove the change satisfies the goal with the smallest useful checks.
-7. **Commit** — stage only task paths and use English Conventional Commit.
-8. **Deliver** — create review or land locally when appropriate.
-9. **Clean up** — remove only landed or explicitly abandoned resources.
+3. **Implement** — edit task-owned files and preserve user work.
+4. **Verify** — prove the change satisfies the goal with the smallest useful checks.
+5. **Report** — summarize the evidence and only mention optional steps that actually happened.
+
+Use these conditionally:
+
+- **Assign** — choose an explorer, planner, or implementer only when task shape warrants it.
+- **Prepare worktree** — use a linked worktree when isolation, dirty state, review workflow, or repo policy makes it useful.
+- **Commit** — stage only task paths and use English Conventional Commit when committing is requested or required.
+- **Deliver** — create review or land locally when appropriate.
+- **Clean up** — remove only landed or explicitly abandoned resources.
 
 ## Best Practices
 
 - Prefer narrow commands over broad probes.
-- Assign agents by task shape; keep final git and delivery responsibility in the current agent.
+- Assign agents by task shape only when useful; keep final git and delivery responsibility in the current agent.
 - Keep the original repository checkout on its environment branch.
-- Use linked worktrees as the default implementation workspace.
+- Use linked worktrees when isolation, review workflow, dirty state, or repo policy makes them useful.
 - Create feature or delivery branches only inside linked worktrees.
-- Sync required env files into linked worktrees without printing or staging secrets.
+- Sync required env files only before checks that need them, without printing or staging secrets.
 - Verify with fresh evidence from the current worktree before claiming success.
 - Stage only task-owned files and inspect the staged diff before commit.
-- Keep commits English Conventional Commit; make version decisions for shipped behavior changes.
+- Keep commits English Conventional Commit; make version decisions only for shipped behavior changes.
 - Prefer direct review creation over pre-listing reviews; avoid broad CI polling.
 - Require approval for merge, force push, reset, branch deletion, worktree removal, remote ref deletion, and destructive cleanup.
 - Never read, print, store, upload, or script secrets.
