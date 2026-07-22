@@ -10,7 +10,7 @@ Use the `localflow:localflow` skill for this request. If the Skill tool is avail
 Treat `$ARGUMENTS` as the repo goal. Follow the core flow:
 
 ```text
-Understand -> Orient -> Implement -> Verify -> Report
+Understand -> Orient -> Prepare worktree -> Implement -> Verify -> Report
 ```
 
 Baseline:
@@ -18,8 +18,9 @@ Baseline:
 - Minimal repo/tool checks only; separate installed/configured/auth/permission facts.
 - Assign agents only when task shape warrants it; current agent owns final git/delivery decisions.
 - Keep the original repository checkout on its environment branch (`main`, `test`, or `dev`).
-- Use a linked worktree when isolation, review workflow, dirty state, or repo policy makes it useful.
-- Create feature or delivery branches only inside linked worktrees, and only when needed.
+- Pure read-only work may stay in the current checkout.
+- Before any file change or task commit, create or safely reuse a dedicated task branch in a linked worktree; never implement in place, on an environment branch, or in detached HEAD.
+- If worktree isolation cannot be established, stop instead of falling back to the original checkout.
 - Sync required ignored env files only before tests or app commands that need them.
 - Stage task-owned paths only and inspect staged diff.
 - Preserve unrelated user changes, secrets, env files, logs, artifacts, and generated junk.

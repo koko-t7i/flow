@@ -1,10 +1,11 @@
 # Localflow
 
 Localflow is a repository flow skill for coding agents. It keeps local work small and safe:
-understand the goal, inspect only what matters, implement, verify, and report. It adds agents,
-worktrees, commits, delivery, and cleanup only when the task actually needs them.
+understand the goal, inspect only what matters, isolate every file-changing task in a linked
+worktree, implement, verify, and report. It adds agents, commits, delivery, and cleanup only
+when the task actually needs them.
 
-Version 2 is intentionally lean: one semantic entrypoint focused on the repository flow.
+Version 3 keeps one semantic entrypoint and makes task worktrees mandatory for repository changes.
 
 ## Entry
 
@@ -33,14 +34,14 @@ Examples:
 
 1. **Understand** — clarify scope only when needed.
 2. **Orient** — inspect minimal repo state and relevant files.
-3. **Implement** — edit task-owned files and preserve user work.
-4. **Verify** — prove the change satisfies the goal with the smallest useful checks.
-5. **Report** — summarize the evidence and only mention optional steps that actually happened.
+3. **Prepare worktree** — create or reuse a dedicated task branch and linked worktree before changing files.
+4. **Implement** — edit task-owned files and preserve user work.
+5. **Verify** — prove the change satisfies the goal with the smallest useful checks.
+6. **Report** — summarize the evidence and only mention optional steps that actually happened.
 
 Use these conditionally:
 
 - **Assign** — choose an explorer, planner, or implementer only when task shape warrants it.
-- **Prepare worktree** — use a linked worktree when isolation, dirty state, review workflow, or repo policy makes it useful.
 - **Commit** — stage only task paths and use English Conventional Commit when committing is requested or required.
 - **Deliver** — create review or land locally when appropriate.
 - **Clean up** — remove only landed or explicitly abandoned resources.
@@ -50,8 +51,9 @@ Use these conditionally:
 - Prefer narrow commands over broad probes.
 - Assign agents by task shape only when useful; keep final git and delivery responsibility in the current agent.
 - Keep the original repository checkout on its environment branch.
-- Use linked worktrees when isolation, review workflow, dirty state, or repo policy makes them useful.
-- Create feature or delivery branches only inside linked worktrees.
+- Allow read-only work in the current checkout, but use a dedicated task branch and linked worktree before any file change or task commit.
+- Never implement in the original checkout, directly on an environment branch, or in detached HEAD; stop if a safe task worktree cannot be established.
+- Reuse an existing linked worktree only when its task branch and dirty-file ownership match the task.
 - Sync required env files only before checks that need them, without printing or staging secrets.
 - Verify with fresh evidence from the current worktree before claiming success.
 - Stage only task-owned files and inspect the staged diff before commit.
@@ -114,6 +116,12 @@ test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ├── skills/localflow -> ../localflow
 └── README.md
 ```
+
+## Breaking Changes In 3.0.0
+
+- Removed in-place implementation and non-worktree fallback for all file-changing tasks.
+- Require a dedicated task branch and linked worktree before editing, generating, staging, or committing task changes.
+- Keep read-only repository inspection available without creating a worktree.
 
 ## Breaking Changes In 2.0.0
 

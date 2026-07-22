@@ -1,13 +1,13 @@
 ---
 name: localflow
-description: "Use for repository tasks that need a safe local flow: understand, orient, implement, verify, and report, with agents, worktrees, commits, delivery, and cleanup added only when the task needs them."
+description: "Use for repository tasks that need a safe local flow: understand, orient, prepare an isolated task worktree before any file changes, implement, verify, and report, with agents, commits, delivery, and cleanup added only when needed."
 ---
 
 # Localflow
 
 Localflow is a repository flow skill. It is not a command toolkit.
 
-Use it to move a repo task through one safe loop with minimal commands, repo-specific judgment, and optional agent assignment when useful.
+Use it to move a repo task through one safe loop with minimal commands, repo-specific judgment, mandatory worktree isolation for file-changing tasks, and optional agent assignment when useful.
 
 One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo goal.
 
@@ -20,18 +20,31 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
 
 2. **Orient**
    - Inspect minimal state: branch, status, worktrees, dirty-file ownership, relevant files, and project conventions.
-   - Choose the environment branch as base and delivery target when delivery or isolation needs one; normally `main`, `test`, or `dev`.
+   - For a file-changing task, choose the environment branch as base and delivery target; normally `main`, `test`, or `dev`.
    - Probe tools, auth, remotes, services, or CI only when the current work needs them.
    - Treat installed/configured/authenticated/permissioned as separate facts.
    - Keep `origin` stable unless the user explicitly asks to change it.
 
-3. **Implement**
+3. **Prepare Worktree**
+   - Read-only inspection, review, explanation, and status reporting may stay in the current checkout.
+   - Before any file edit, formatter, code generation, migration, or task commit, use a linked worktree on a dedicated task branch created from the environment branch.
+   - Never implement, stage task changes, or commit them in the original checkout or directly on an environment branch.
+   - Follow repository branch conventions; otherwise name the task branch `type/short-kebab-slug` and place the worktree in a non-nested sibling directory.
+   - If the current directory is already a linked worktree, reuse it only when it is on a compatible task branch and dirty-file ownership is clear. Do not use detached HEAD and do not create nested worktrees.
+   - If existing changes in the original checkout may belong to the task, confirm ownership before moving or recreating them in the task worktree. Do not continue, stage, or commit them in place.
+   - Sync required local environment files into the task worktree only before tests or app commands that need them.
+   - Preserve env-file relative paths and relevant permissions; confirm they are ignored before use.
+   - If required env files are missing from the source checkout, inspect same-repository sibling worktrees before declaring services unavailable.
+   - If the environment branch, change ownership, or safe worktree cannot be resolved, stop instead of falling back to in-place work.
+   - Never switch the original checkout away from its environment branch unless the user explicitly asks.
+
+4. **Implement**
    - Edit task-owned files only.
    - Preserve unrelated user changes.
    - Follow repository conventions over generic preferences.
    - Avoid unrelated refactors, formatting churn, generated noise, logs, artifacts, and temporary files.
 
-4. **Verify**
+5. **Verify**
    - Prove the change satisfies the goal and acceptance criteria.
    - Use fresh evidence from the current worktree before claiming success.
    - Run the smallest useful checks first.
@@ -42,10 +55,11 @@ One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo
    - Fix failures caused by the task; record unrelated failures without expanding scope unless asked.
    - Report skipped checks and remaining risk.
 
-5. **Report**
+6. **Report**
    - End with concise evidence from what actually happened.
    - Include files changed, checks run, skipped checks, unrelated failures, and remaining risk.
-   - Include agent assignment, branch/worktree paths, commit, delivery, and cleanup only when they were part of the task.
+   - For file-changing tasks, include the environment branch, task branch, and worktree path.
+   - Include agent assignment, commit, delivery, and cleanup only when they were part of the task.
 
 ## Conditional Steps
 
@@ -60,19 +74,6 @@ Use these only when the task shape, user request, risk, or repo policy requires 
 - Run agents in parallel only for independent read-only exploration or clearly separated work.
 - Give delegated agents narrow prompts, clear scope, expected outputs, and file boundaries.
 - The current agent owns final decisions, git state, verification, commit, delivery, and cleanup.
-
-### Prepare Worktree
-
-- Keep the original repository checkout on its environment branch, usually `main`, `test`, or `dev`.
-- Use a linked worktree when isolation, review workflow, dirty state, or repo policy makes it useful.
-- Create the linked worktree from the target environment branch, and keep that branch as the base and delivery target.
-- Create feature or delivery branches only inside linked worktrees, and only when implementation, review, or repo policy needs one.
-- Avoid nested worktrees.
-- If existing dirty files may belong to the task, confirm ownership before moving or recreating them in the linked worktree.
-- Sync required local environment files into the linked worktree only before tests or app commands that need them.
-- Preserve env-file relative paths and relevant permissions; confirm they are ignored before use.
-- If required env files are missing from the source checkout, inspect same-repository sibling worktrees before declaring services unavailable.
-- Never switch the original repository checkout away from its environment branch unless the user explicitly asks.
 
 ### Commit
 
@@ -114,10 +115,9 @@ Use these only when the task shape, user request, risk, or repo policy requires 
 - Never read, print, store, upload, or script private keys, tokens, passphrases, or secret env values.
 - Public key upload changes account security state and requires explicit approval.
 - Use review CLIs only when review work needs them.
-- Use snapshot-style delivery only for shared live checkouts; include exact task paths only and leave working tree, index, and HEAD untouched.
 - Treat reset, restore, clean, rebase, merge, force push, branch deletion, worktree removal, remote ref deletion, and repository `rm -rf` as high risk.
 - Before destructive actions, state the current branch, exact command, affected files/resources, and expected data loss or cleanup effect; wait for approval.
 
 ## Stop
 
-Stop and ask when safe implementation remains unclear, acceptance criteria conflict, scope or ownership is unclear, environment branch cannot be chosen when one is required, worktree isolation cannot be created when needed, required env files are unavailable for required checks, auth recovery would expose secrets, task-related checks fail, delivery target is unclear, destructive action lacks approval, cleanup ownership is unclear, or agent boundary cannot be resolved safely.
+Stop and ask when safe implementation remains unclear, acceptance criteria conflict, scope or ownership is unclear, the environment branch for a file-changing task cannot be chosen, task changes cannot be safely moved out of the original checkout, a dedicated task branch and linked worktree cannot be created or safely reused, required env files are unavailable for required checks, auth recovery would expose secrets, task-related checks fail, delivery target is unclear, destructive action lacks approval, cleanup ownership is unclear, or agent boundary cannot be resolved safely. Never use in-place implementation as a fallback.
