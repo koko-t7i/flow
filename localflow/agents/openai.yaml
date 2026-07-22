@@ -1,4 +1,4 @@
 interface:
   display_name: "Localflow"
   short_description: "本地仓库 flow skill"
-  default_prompt: "Use $localflow as a repository flow skill: understand, orient, implement, verify, and report. Assign agents, use linked worktrees, sync ignored env files, commit, deliver, and clean up only when the task needs them. Keep the original checkout on its environment branch when using worktrees. Create feature or delivery branches only inside linked worktrees when needed. Use minimal repo checks. Protect secrets. Ask before destructive git actions."
+  default_prompt: "Use $localflow as a repository flow skill: understand, orient, prepare a dedicated task branch and linked worktree before any file change or task commit, implement, verify, and report. Read-only work may stay in the current checkout, but never implement in place, on an environment branch, or in detached HEAD; stop if safe worktree isolation is unavailable. Assign agents, sync ignored env files, commit, deliver, and clean up only when needed. Use minimal repo checks. Protect secrets. Ask before destructive git actions."

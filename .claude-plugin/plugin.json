@@ -1,7 +1,7 @@
 {
   "name": "localflow",
-  "version": "2.0.0",
-  "description": "Repository flow skill for safe scoped changes with automatic agent assignment, validation, delivery, and cleanup.",
+  "version": "3.0.0",
+  "description": "Repository flow skill for safe scoped changes in isolated task worktrees, with agent assignment, validation, delivery, and cleanup.",
   "author": {
     "name": "koko-t7i",
     "url": "https://github.com/koko-t7i"
