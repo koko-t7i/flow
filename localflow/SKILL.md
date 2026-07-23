@@ -91,6 +91,9 @@ Use these only when the task shape, user request, risk, or repo policy requires 
 
 - Deliver according to repo norms and user intent.
 - For review, create or update a delivery branch when needed, using task-owned changes and concise verification evidence.
+- Build the MR/PR description from the verified diff and the user conversation, using the repository template when one exists.
+- At minimum, describe the core functionality or outcome, boundary conditions or limitations reviewers should notice, user-emphasized requirements or decisions when present, and verification evidence including skipped checks or remaining risk.
+- If no repository template exists, organize those details under `Core Functionality`, `Boundary Conditions`, `User Notes` when applicable, and `Verification`. Do not invent user notes or expose secrets or sensitive information.
 - Push only intended branches.
 - Prefer direct review creation over pre-listing reviews; inspect existing review only when creation reports one already exists.
 - Avoid broad CI polling; check by commit SHA when CI evidence is required and not already reported.

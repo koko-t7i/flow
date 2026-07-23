@@ -58,6 +58,7 @@ Use these conditionally:
 - Verify with fresh evidence from the current worktree before claiming success.
 - Stage only task-owned files and inspect the staged diff before commit.
 - Keep commits English Conventional Commit; make version decisions only for shipped behavior changes.
+- Make MR/PR descriptions cover core functionality, notable boundary conditions, user-emphasized requirements or decisions, and verification evidence; follow repository templates and exclude sensitive information.
 - Prefer direct review creation over pre-listing reviews; avoid broad CI polling.
 - Require approval for merge, force push, reset, branch deletion, worktree removal, remote ref deletion, and destructive cleanup.
 - Never read, print, store, upload, or script secrets.
