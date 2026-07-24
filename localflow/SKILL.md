@@ -91,6 +91,7 @@ Use these only when the task shape, user request, risk, or repo policy requires 
 
 - Deliver according to repo norms and user intent.
 - For review, create or update a delivery branch when needed, using task-owned changes and concise verification evidence.
+- Follow the repository's review title convention when one exists; otherwise use a concise English Conventional Commit-style title, `type(scope): summary`, with optional scope, that describes the overall verified outcome.
 - Build the MR/PR description from the verified diff and the user conversation, using the repository template when one exists.
 - At minimum, describe the core functionality or outcome, boundary conditions or limitations reviewers should notice, user-emphasized requirements or decisions when present, and verification evidence including skipped checks or remaining risk.
 - If no repository template exists, organize those details under `Core Functionality`, `Boundary Conditions`, `User Notes` when applicable, and `Verification`. Do not invent user notes or expose secrets or sensitive information.

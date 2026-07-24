@@ -25,6 +25,7 @@ Baseline:
 - Stage task-owned paths only and inspect staged diff.
 - Preserve unrelated user changes, secrets, env files, logs, artifacts, and generated junk.
 - Verify with fresh evidence before claiming success.
+- Follow repository MR/PR title conventions; otherwise use a concise English Conventional Commit-style title for the overall verified outcome.
 - MR/PR descriptions must cover core functionality, notable boundary conditions, user-emphasized requirements or decisions, and verification evidence, while following repository templates and protecting sensitive information.
 - Commit, deliver, and clean up only when requested or required by the task.
 - Ask before destructive or irreversible git actions.
