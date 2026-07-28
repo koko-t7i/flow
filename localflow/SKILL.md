@@ -93,8 +93,9 @@ Use these only when the task shape, user request, risk, or repo policy requires 
 - For review, create or update a delivery branch when needed, using task-owned changes and concise verification evidence.
 - Follow the repository's review title convention when one exists; otherwise use a concise English Conventional Commit-style title, `type(scope): summary`, with optional scope, that describes the overall verified outcome.
 - Build the MR/PR description from the verified diff and the user conversation, using the repository template when one exists.
-- At minimum, describe the core functionality or outcome, boundary conditions or limitations reviewers should notice, user-emphasized requirements or decisions when present, and verification evidence including skipped checks or remaining risk.
-- If no repository template exists, organize those details under `Core Functionality`, `Boundary Conditions`, `User Notes` when applicable, and `Verification`. Do not invent user notes or expose secrets or sensitive information.
+- Make the description self-contained: explain the background and purpose; summarize the change scope and explicit non-goals; outline the implementation approach and important tradeoffs; assess relevant compatibility, data, API, configuration, permission, performance, security, dependency, deployment, and rollback impact; provide verification steps and evidence, including skipped checks; state known risks, limitations, dependencies, draft status, and reviewer focus when applicable; and preserve user-emphasized requirements or decisions.
+- If no repository template exists, organize the applicable details under `Background`, `Changes`, `Implementation`, `Impact and Risks`, `Verification`, `Deployment and Rollback`, and `Review Focus`. Omit empty or inapplicable sections, do not invent user notes, and never expose secrets or sensitive information.
+- Screenshots are not part of the MR/PR standard. Do not add a screenshot section.
 - Push only intended branches.
 - Prefer direct review creation over pre-listing reviews; inspect existing review only when creation reports one already exists.
 - Avoid broad CI polling; check by commit SHA when CI evidence is required and not already reported.

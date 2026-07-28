@@ -26,7 +26,8 @@ Baseline:
 - Preserve unrelated user changes, secrets, env files, logs, artifacts, and generated junk.
 - Verify with fresh evidence before claiming success.
 - Follow repository MR/PR title conventions; otherwise use a concise English Conventional Commit-style title for the overall verified outcome.
-- MR/PR descriptions must cover core functionality, notable boundary conditions, user-emphasized requirements or decisions, and verification evidence, while following repository templates and protecting sensitive information.
+- MR/PR descriptions must be self-contained with background and purpose, change scope and non-goals, implementation approach and tradeoffs, relevant impact and risks, verification evidence, deployment and rollback details, dependencies or draft status, and reviewer focus when applicable, while following repository templates and protecting sensitive information.
+- Screenshots are not part of the MR/PR standard; do not add a screenshot section.
 - Commit, deliver, and clean up only when requested or required by the task.
 - Ask before destructive or irreversible git actions.
 
