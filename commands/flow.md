@@ -1,11 +1,11 @@
 ---
-description: Run the local repository flow skill
+description: Run the repository flow
 argument-hint: "<goal or task>"
 ---
 
-# Localflow
+# Flow
 
-Use the `localflow:localflow` skill for this request. If the Skill tool is available, invoke `localflow:localflow` before continuing.
+Use the `flow:flow` skill for this request. If the Skill tool is available, invoke `flow:flow` before continuing.
 
 Treat `$ARGUMENTS` as the repo goal. Follow the core flow:
 

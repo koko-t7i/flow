@@ -1,15 +1,15 @@
 ---
-name: localflow
-description: "Use for repository tasks that need a safe local flow: understand, orient, prepare an isolated task worktree before any file changes, implement, verify, and report, with agents, commits, delivery, and cleanup added only when needed."
+name: flow
+description: "Use for safe repository changes in isolated task worktrees: understand, orient, prepare, implement, verify, and report."
 ---
 
-# Localflow
+# Flow
 
-Localflow is a repository flow skill. It is not a command toolkit.
+Flow is a repository workflow skill, not a command toolkit.
 
 Use it to move a repo task through one safe loop with minimal commands, repo-specific judgment, mandatory worktree isolation for file-changing tasks, and optional agent assignment when useful.
 
-One public entrypoint: `/localflow` or `$localflow`. Treat user text as the repo goal.
+One public entrypoint: `/flow` or `$flow`. Treat user text as the repo goal.
 
 ## Core Flow
 

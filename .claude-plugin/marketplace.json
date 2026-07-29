@@ -1,9 +1,9 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "localflow",
-  "description": "Repository flow skill for Claude Code with isolated task worktrees and agent assignment.",
+  "name": "flow",
+  "description": "Safe repository flow for Claude Code.",
   "metadata": {
-    "description": "One-entry repository flow skill for isolated local changes, agent assignment, validation, delivery, and cleanup."
+    "description": "One entry for safe, isolated repository changes."
   },
   "owner": {
     "name": "koko-t7i",
@@ -11,8 +11,8 @@
   },
   "plugins": [
     {
-      "name": "localflow",
-      "description": "Guide repository changes through isolated task worktrees with agent assignment.",
+      "name": "flow",
+      "description": "Guide repository changes through isolated task worktrees.",
       "source": "./",
       "category": "productivity"
     }

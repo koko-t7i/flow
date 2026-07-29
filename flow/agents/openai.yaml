@@ -1,0 +1,4 @@
+interface:
+  display_name: "Flow"
+  short_description: "安全的仓库工作流"
+  default_prompt: "Use $flow to understand, isolate, implement, verify, and report repository changes. Before any file change or task commit, use a dedicated task branch in a linked worktree; never implement in place, on an environment branch, or in detached HEAD. Keep checks minimal, preserve user work and secrets, and add agents, commits, delivery, or cleanup only when needed. Ask before destructive git actions."
