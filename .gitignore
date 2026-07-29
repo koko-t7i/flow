@@ -31,3 +31,6 @@ env/
 # Tool caches
 .tox/
 .nox/
+
+# Linked worktrees
+.worktrees/
