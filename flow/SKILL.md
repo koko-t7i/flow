@@ -102,6 +102,8 @@ Apply these details when the corresponding core step or task condition occurs.
 - Build the MR/PR description from the verified diff and the user conversation, using the repository template when one exists.
 - Make the description self-contained: explain the background and purpose; summarize the change scope and explicit non-goals; outline the implementation approach and important tradeoffs; assess relevant compatibility, data, API, configuration, permission, performance, security, dependency, deployment, and rollback impact; provide verification steps and evidence, including skipped checks; state known risks, limitations, dependencies, draft status, and reviewer focus when applicable; and preserve user-emphasized requirements or decisions.
 - If no repository template exists, organize the applicable details under `Background`, `Changes`, `Implementation`, `Impact and Risks`, `Verification`, `Deployment and Rollback`, and `Review Focus`. Omit empty or inapplicable sections, do not invent user notes, and never expose secrets or sensitive information.
+- Format verification evidence as concise bullets or prose. Lead with the result, put individual commands in inline code, and pair each command with its outcome.
+- Do not use fenced `bash`, `sh`, `shell`, or `console` blocks for test methods or results in MR/PR descriptions; summarize relevant output instead of pasting a terminal transcript.
 - Screenshots are not part of the MR/PR standard. Do not add a screenshot section.
 - Push only intended branches.
 - Prefer direct review creation over pre-listing reviews; inspect existing review only when creation reports one already exists.

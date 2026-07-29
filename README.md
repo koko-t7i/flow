@@ -5,7 +5,7 @@ understand the goal, inspect only what matters, choose the right workspace, impl
 verify, deliver through review by default, and report. It adds worktrees and agents only
 when the task actually needs them.
 
-Version 5.1 creates an MR/PR after verified file-changing tasks by default while keeping merge approval explicit.
+Version 5.2 keeps MR/PR verification evidence compact and readable without fenced shell blocks.
 
 ## Entry
 
@@ -61,6 +61,7 @@ Use these conditionally:
 - Creating an MR/PR never authorizes merge or force push.
 - Follow repository MR/PR title conventions; when none exist, use a concise English Conventional Commit-style title that describes the overall verified outcome.
 - Make MR/PR descriptions self-contained with background and purpose, change scope and non-goals, implementation approach and tradeoffs, relevant impact and risks, verification evidence, deployment and rollback details, dependencies or draft status, and reviewer focus when applicable; follow repository templates and exclude sensitive information.
+- Present verification as concise result-first bullets with commands in inline code; never use fenced shell blocks for test methods or results.
 - Screenshots are not part of the MR/PR standard; do not add a screenshot section.
 - Prefer direct review creation over pre-listing reviews; avoid broad CI polling.
 - Require approval for merge, force push, reset, and destructive cleanup outside the verified post-merge default.
@@ -125,6 +126,10 @@ test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ├── skills/flow -> ../flow
 └── README.md
 ```
+
+## Changes In 5.2.0
+
+- Required compact, result-first verification evidence with inline commands instead of fenced shell blocks in MR/PR descriptions.
 
 ## Changes In 5.1.0
 
