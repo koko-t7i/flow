@@ -1,11 +1,11 @@
 # Flow
 
 Flow is a repository skill for coding agents. It keeps local work small and safe:
-understand the goal, inspect only what matters, isolate every file-changing task in a linked
-worktree, implement, verify, and report. It adds agents, commits, delivery, and cleanup only
-when the task actually needs them.
+understand the goal, inspect only what matters, choose the right workspace, implement,
+verify, and report. It adds worktrees, agents, commits, delivery, and cleanup only when
+the task actually needs them.
 
-Version 4 uses the shorter `flow` name while keeping one entrypoint and mandatory task worktrees.
+Version 5 makes worktrees optional, keeps them inside the repository, and cleans merged task resources by default.
 
 ## Entry
 
@@ -34,7 +34,7 @@ Examples:
 
 1. **Understand** — clarify scope only when needed.
 2. **Orient** — inspect minimal repo state and relevant files.
-3. **Prepare worktree** — create or reuse a dedicated task branch and linked worktree before changing files.
+3. **Prepare workspace** — reuse the checkout or create a linked worktree when the task benefits from isolation.
 4. **Implement** — edit task-owned files and preserve user work.
 5. **Verify** — prove the change satisfies the goal with the smallest useful checks.
 6. **Report** — summarize the evidence and only mention optional steps that actually happened.
@@ -50,19 +50,20 @@ Use these conditionally:
 
 - Prefer narrow commands over broad probes.
 - Assign agents by task shape only when useful; keep final git and delivery responsibility in the current agent.
-- Keep the original repository checkout on its environment branch.
-- Allow read-only work in the current checkout, but use a dedicated task branch and linked worktree before any file change or task commit.
-- Never implement in the original checkout, directly on an environment branch, or in detached HEAD; stop if a safe task worktree cannot be established.
-- Reuse an existing linked worktree only when its task branch and dirty-file ownership match the task.
+- Choose workspace isolation from task risk, existing changes, parallel work, and delivery needs; file changes alone do not require a worktree.
+- Place new worktrees at `<repo-root>/.worktrees/<repo>-<branch>`, replacing `/` in branch names with `-`.
+- Reuse an existing checkout or worktree only when its branch and dirty-file ownership match the task; never overwrite a collision.
+- Never implement or commit in detached HEAD; stop when workspace safety or change ownership is unclear.
 - Sync required env files only before checks that need them, without printing or staging secrets.
-- Verify with fresh evidence from the current worktree before claiming success.
+- Verify with fresh evidence from the task workspace before claiming success.
 - Stage only task-owned files and inspect the staged diff before commit.
 - Keep commits English Conventional Commit; make version decisions only for shipped behavior changes.
 - Follow repository MR/PR title conventions; when none exist, use a concise English Conventional Commit-style title that describes the overall verified outcome.
 - Make MR/PR descriptions self-contained with background and purpose, change scope and non-goals, implementation approach and tradeoffs, relevant impact and risks, verification evidence, deployment and rollback details, dependencies or draft status, and reviewer focus when applicable; follow repository templates and exclude sensitive information.
 - Screenshots are not part of the MR/PR standard; do not add a screenshot section.
 - Prefer direct review creation over pre-listing reviews; avoid broad CI polling.
-- Require approval for merge, force push, reset, branch deletion, worktree removal, remote ref deletion, and destructive cleanup.
+- Require approval for merge, force push, reset, and destructive cleanup outside the verified post-merge default.
+- After an authorized merge succeeds, delete the remote source branch, clean worktree, and merged local branch, then run `git worktree prune`.
 - Never read, print, store, upload, or script secrets.
 
 ## Install
@@ -83,8 +84,11 @@ claude plugin validate .
 ### Codex
 
 ```bash
-ln -s "$PWD/flow" "$HOME/.codex/skills/flow"
+mkdir -p "$HOME/.agents/skills"
+ln -s "$PWD/flow" "$HOME/.agents/skills/flow"
 ```
+
+Start a new Codex session after installation, then invoke the standalone skill directly with `$flow`.
 
 When the Codex validator is available:
 
@@ -112,6 +116,7 @@ test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ```text
 .
 ├── .claude-plugin/
+├── .worktrees/ (ignored, when used)
 ├── commands/flow.md
 ├── flow/
 │   ├── SKILL.md
@@ -119,6 +124,13 @@ test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ├── skills/flow -> ../flow
 └── README.md
 ```
+
+## Breaking Changes In 5.0.0
+
+- Made worktree isolation task-dependent instead of mandatory for every file change.
+- Moved new worktrees to `.worktrees/<repo>-<branch>` inside the repository.
+- Cleaned remote and local source branches, merged worktrees, and stale worktree metadata after a successful authorized merge.
+- Moved standalone Codex installation to `$HOME/.agents/skills/flow` for direct `$flow` invocation.
 
 ## Breaking Changes In 4.0.0
 

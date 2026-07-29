@@ -1,13 +1,13 @@
 ---
 name: flow
-description: "Use for safe repository changes in isolated task worktrees: understand, orient, prepare, implement, verify, and report."
+description: "Use for safe repository tasks: understand, orient, choose the current checkout or an optional linked worktree, implement, verify, deliver, and clean up."
 ---
 
 # Flow
 
 Flow is a repository workflow skill, not a command toolkit.
 
-Use it to move a repo task through one safe loop with minimal commands, repo-specific judgment, mandatory worktree isolation for file-changing tasks, and optional agent assignment when useful.
+Use it to move a repo task through one safe loop with minimal commands, repo-specific judgment, adaptive workspace isolation, and optional agent assignment when useful.
 
 One public entrypoint: `/flow` or `$flow`. Treat user text as the repo goal.
 
@@ -20,23 +20,22 @@ One public entrypoint: `/flow` or `$flow`. Treat user text as the repo goal.
 
 2. **Orient**
    - Inspect minimal state: branch, status, worktrees, dirty-file ownership, relevant files, and project conventions.
-   - For a file-changing task, choose the environment branch as base and delivery target; normally `main`, `test`, or `dev`.
+   - Identify the current branch and, when delivery matters, the environment branch and target; normally `main`, `test`, or `dev`.
    - Probe tools, auth, remotes, services, or CI only when the current work needs them.
    - Treat installed/configured/authenticated/permissioned as separate facts.
    - Keep `origin` stable unless the user explicitly asks to change it.
 
-3. **Prepare Worktree**
-   - Read-only inspection, review, explanation, and status reporting may stay in the current checkout.
-   - Before any file edit, formatter, code generation, migration, or task commit, use a linked worktree on a dedicated task branch created from the environment branch.
-   - Never implement, stage task changes, or commit them in the original checkout or directly on an environment branch.
-   - Follow repository branch conventions; otherwise name the task branch `type/short-kebab-slug` and place the worktree in a non-nested sibling directory.
-   - If the current directory is already a linked worktree, reuse it only when it is on a compatible task branch and dirty-file ownership is clear. Do not use detached HEAD and do not create nested worktrees.
-   - If existing changes in the original checkout may belong to the task, confirm ownership before moving or recreating them in the task worktree. Do not continue, stage, or commit them in place.
-   - Sync required local environment files into the task worktree only before tests or app commands that need them.
+3. **Prepare Workspace**
+   - Decide whether to reuse the current checkout or create a linked worktree from the task shape, risk, existing changes, parallel work, and delivery needs. File changes alone do not require a worktree.
+   - Reuse the current checkout when its branch and dirty-file ownership are safe for the task. Create or switch branches only when the task or delivery needs one.
+   - When using a worktree, follow repository branch conventions; otherwise name the branch `type/short-kebab-slug`.
+   - Place new worktrees at `<repo-root>/.worktrees/<repo>-<branch>`, replacing `/` in the branch name with `-`, and ensure `.worktrees/` is ignored.
+   - Inspect an existing target before reuse. Reuse it only when its branch and ownership match; stop rather than overwrite a collision or unknown worktree.
+   - Do not implement or commit in detached HEAD. Resolve unclear or unrelated existing changes before editing.
+   - Sync required local environment files into the task workspace only before tests or app commands that need them.
    - Preserve env-file relative paths and relevant permissions; confirm they are ignored before use.
-   - If required env files are missing from the source checkout, inspect same-repository sibling worktrees before declaring services unavailable.
-   - If the environment branch, change ownership, or safe worktree cannot be resolved, stop instead of falling back to in-place work.
-   - Never switch the original checkout away from its environment branch unless the user explicitly asks.
+   - If required env files are missing from the current checkout, inspect same-repository worktrees before declaring services unavailable.
+   - If workspace safety or change ownership cannot be resolved, stop instead of guessing.
 
 4. **Implement**
    - Edit task-owned files only.
@@ -46,7 +45,7 @@ One public entrypoint: `/flow` or `$flow`. Treat user text as the repo goal.
 
 5. **Verify**
    - Prove the change satisfies the goal and acceptance criteria.
-   - Use fresh evidence from the current worktree before claiming success.
+   - Use fresh evidence from the task workspace before claiming success.
    - Run the smallest useful checks first.
    - Expand to broader checks when risk, repo policy, or delivery requires it.
    - Treat tests passed as check evidence, not automatic proof of acceptance.
@@ -58,7 +57,7 @@ One public entrypoint: `/flow` or `$flow`. Treat user text as the repo goal.
 6. **Report**
    - End with concise evidence from what actually happened.
    - Include files changed, checks run, skipped checks, unrelated failures, and remaining risk.
-   - For file-changing tasks, include the environment branch, task branch, and worktree path.
+   - For file-changing tasks, include the environment and task branches when relevant, plus the worktree path when one was used.
    - Include agent assignment, commit, delivery, and cleanup only when they were part of the task.
 
 ## Conditional Steps
@@ -102,15 +101,16 @@ Use these only when the task shape, user request, risk, or repo policy requires 
 - Recover auth without exposing secrets; use HTTPS fallback only with existing credentials or explicit authorization.
 - Keep the intended environment branch clean and verified for local landing.
 - Merge and force push require explicit approval.
+- After an explicitly authorized merge succeeds, perform the verified post-merge cleanup below without asking again.
 
 ### Clean Up
 
-- Cleanup is separate from delivery.
-- Keep linked worktrees and local delivery branches for review fixes until remote review has landed.
-- Remove only merged, landed, or explicitly abandoned resources.
-- Name exact branches, worktrees, or remote refs before deletion.
-- Never delete dirty, unknown, unowned, or unmerged work.
-- Prune worktrees only when stale entries are detected or after failed/aborted worktree operations.
+- Keep task resources while review is open. After a successful merge, verify the merged state, exact source branch, worktree ownership, and clean status before cleanup.
+- Run cleanup from a surviving checkout, never from the worktree being removed.
+- By default, delete the remote source branch, remove its clean linked worktree with `git worktree remove`, delete the merged local source branch with `git branch -d`, then run `git worktree prune`.
+- Treat an already-deleted remote source branch as a successful no-op and continue the remaining cleanup.
+- Never delete an environment branch, dirty worktree, unknown resource, or unmerged branch. Stop and report instead.
+- Ask before cleanup outside this verified post-merge default or when ownership and merge state are unclear.
 
 ## Best Practices
 
@@ -120,9 +120,9 @@ Use these only when the task shape, user request, risk, or repo policy requires 
 - Never read, print, store, upload, or script private keys, tokens, passphrases, or secret env values.
 - Public key upload changes account security state and requires explicit approval.
 - Use review CLIs only when review work needs them.
-- Treat reset, restore, clean, rebase, merge, force push, branch deletion, worktree removal, remote ref deletion, and repository `rm -rf` as high risk.
-- Before destructive actions, state the current branch, exact command, affected files/resources, and expected data loss or cleanup effect; wait for approval.
+- Treat reset, restore, clean, rebase, merge, force push, and repository `rm -rf` as high risk.
+- Before destructive actions outside verified post-merge cleanup, state the current branch, exact command, affected files/resources, and expected data loss or cleanup effect; wait for approval.
 
 ## Stop
 
-Stop and ask when safe implementation remains unclear, acceptance criteria conflict, scope or ownership is unclear, the environment branch for a file-changing task cannot be chosen, task changes cannot be safely moved out of the original checkout, a dedicated task branch and linked worktree cannot be created or safely reused, required env files are unavailable for required checks, auth recovery would expose secrets, task-related checks fail, delivery target is unclear, destructive action lacks approval, cleanup ownership is unclear, or agent boundary cannot be resolved safely. Never use in-place implementation as a fallback.
+Stop and ask when safe implementation remains unclear, acceptance criteria conflict, scope or ownership is unclear, no safe workspace can be chosen, required env files are unavailable for required checks, auth recovery would expose secrets, task-related checks fail, delivery target is unclear, destructive action lacks approval, post-merge cleanup is dirty or unverified, or agent boundaries cannot be resolved safely.
