@@ -10,7 +10,7 @@ Use the `flow:flow` skill for this request. If the Skill tool is available, invo
 Treat `$ARGUMENTS` as the repo goal. Follow the core flow:
 
 ```text
-Understand -> Orient -> Prepare workspace -> Implement -> Verify -> Report
+Understand -> Orient -> Prepare workspace -> Implement -> Verify -> Deliver -> Report
 ```
 
 Baseline:
@@ -27,7 +27,8 @@ Baseline:
 - Follow repository MR/PR title conventions; otherwise use a concise English Conventional Commit-style title for the overall verified outcome.
 - MR/PR descriptions must be self-contained with background and purpose, change scope and non-goals, implementation approach and tradeoffs, relevant impact and risks, verification evidence, deployment and rollback details, dependencies or draft status, and reviewer focus when applicable, while following repository templates and protecting sensitive information.
 - Screenshots are not part of the MR/PR standard; do not add a screenshot section.
-- Commit, deliver, and clean up only when requested or required by the task.
+- After a verified file-changing task, commit task-owned changes, push the task branch, and create or update a ready MR/PR by default; skip only when the user declines, no task diff exists, or remote delivery is unavailable.
+- MR/PR creation never authorizes merge or force push.
 - After an explicitly authorized merge succeeds, delete the remote source branch, remove its clean worktree, safely delete the merged local branch, and run `git worktree prune`; stop on dirty or unverified resources.
 - Ask before destructive or irreversible git actions outside verified post-merge cleanup.
 

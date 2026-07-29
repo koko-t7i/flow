@@ -1,6 +1,6 @@
 ---
 name: flow
-description: "Use for safe repository tasks: understand, orient, choose the current checkout or an optional linked worktree, implement, verify, deliver, and clean up."
+description: "Use for safe repository tasks: understand, orient, choose a workspace, implement, verify, create an MR/PR by default, and clean up after an authorized merge."
 ---
 
 # Flow
@@ -54,15 +54,21 @@ One public entrypoint: `/flow` or `$flow`. Treat user text as the repo goal.
    - Fix failures caused by the task; record unrelated failures without expanding scope unless asked.
    - Report skipped checks and remaining risk.
 
-6. **Report**
+6. **Deliver**
+   - After a file-changing task is complete and verified, default to committing task-owned changes, pushing the task branch, and creating or updating a ready-for-review MR/PR.
+   - Skip review delivery only when the user explicitly declines it, the task is read-only or has no task-owned diff, or no usable remote, hosting integration, authentication, or permission is available.
+   - Do not present incomplete work or failed task-related checks as ready for review. Stop and report the blocker instead.
+   - Keep merge and force push behind explicit approval.
+
+7. **Report**
    - End with concise evidence from what actually happened.
    - Include files changed, checks run, skipped checks, unrelated failures, and remaining risk.
    - For file-changing tasks, include the environment and task branches when relevant, plus the worktree path when one was used.
    - Include agent assignment, commit, delivery, and cleanup only when they were part of the task.
 
-## Conditional Steps
+## Supporting Steps
 
-Use these only when the task shape, user request, risk, or repo policy requires them.
+Apply these details when the corresponding core step or task condition occurs.
 
 ### Assign Agent
 
@@ -76,19 +82,21 @@ Use these only when the task shape, user request, risk, or repo policy requires 
 
 ### Commit
 
-- Commit only when requested, required by delivery, or normal repo flow for the task.
+- Commit verified task-owned changes when default review delivery applies, or when the user or repository workflow otherwise requires a commit.
 - Inspect final diff.
 - Stage only task-owned paths.
 - Inspect staged diff.
 - Use an English Conventional Commit subject.
 - Keep commit content and message aligned with the staged diff.
 - Make a version decision only when shipped behavior, public commands, APIs, install/update behavior, package contents, or released capability changes.
+- Use patch releases for compatible fixes, documentation, and internal-only changes; minor releases for backward-compatible capabilities or workflow-default changes; and major releases only for removed or renamed public entrypoints, incompatible install or manifest formats, or an explicitly breaking release.
 - Exclude secrets, env files, generated junk, unrelated edits, and AI/tool attribution.
 - After a review branch is pushed, append follow-up commits unless the user explicitly approves rewriting history.
 
 ### Deliver
 
-- Deliver according to repo norms and user intent.
+- Default to creating or updating an MR/PR after successful implementation and verification unless a documented skip condition applies.
+- If changes are on an environment branch, create a task branch before committing and pushing; never push task commits directly to the environment branch for review delivery.
 - For review, create or update a delivery branch when needed, using task-owned changes and concise verification evidence.
 - Follow the repository's review title convention when one exists; otherwise use a concise English Conventional Commit-style title, `type(scope): summary`, with optional scope, that describes the overall verified outcome.
 - Build the MR/PR description from the verified diff and the user conversation, using the repository template when one exists.
@@ -97,10 +105,11 @@ Use these only when the task shape, user request, risk, or repo policy requires 
 - Screenshots are not part of the MR/PR standard. Do not add a screenshot section.
 - Push only intended branches.
 - Prefer direct review creation over pre-listing reviews; inspect existing review only when creation reports one already exists.
+- Create a ready review by default. Use draft status only when the user requests it or the repository workflow explicitly requires it.
 - Avoid broad CI polling; check by commit SHA when CI evidence is required and not already reported.
 - Recover auth without exposing secrets; use HTTPS fallback only with existing credentials or explicit authorization.
 - Keep the intended environment branch clean and verified for local landing.
-- Merge and force push require explicit approval.
+- MR/PR creation does not authorize merge. Merge and force push require explicit approval.
 - After an explicitly authorized merge succeeds, perform the verified post-merge cleanup below without asking again.
 
 ### Clean Up
@@ -125,4 +134,4 @@ Use these only when the task shape, user request, risk, or repo policy requires 
 
 ## Stop
 
-Stop and ask when safe implementation remains unclear, acceptance criteria conflict, scope or ownership is unclear, no safe workspace can be chosen, required env files are unavailable for required checks, auth recovery would expose secrets, task-related checks fail, delivery target is unclear, destructive action lacks approval, post-merge cleanup is dirty or unverified, or agent boundaries cannot be resolved safely.
+Stop and ask when safe implementation remains unclear, acceptance criteria conflict, scope or ownership is unclear, no safe workspace can be chosen, required env files are unavailable for required checks, auth recovery would expose secrets, task-related checks fail, delivery target is unclear, destructive action lacks approval, post-merge cleanup is dirty or unverified, or agent boundaries cannot be resolved safely. If default review delivery is unavailable, finish the safe local work and report the exact delivery blocker instead of inventing a remote path.

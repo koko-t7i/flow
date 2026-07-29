@@ -2,10 +2,10 @@
 
 Flow is a repository skill for coding agents. It keeps local work small and safe:
 understand the goal, inspect only what matters, choose the right workspace, implement,
-verify, and report. It adds worktrees, agents, commits, delivery, and cleanup only when
-the task actually needs them.
+verify, deliver through review by default, and report. It adds worktrees and agents only
+when the task actually needs them.
 
-Version 5 makes worktrees optional, keeps them inside the repository, and cleans merged task resources by default.
+Version 5.1 creates an MR/PR after verified file-changing tasks by default while keeping merge approval explicit.
 
 ## Entry
 
@@ -37,13 +37,12 @@ Examples:
 3. **Prepare workspace** — reuse the checkout or create a linked worktree when the task benefits from isolation.
 4. **Implement** — edit task-owned files and preserve user work.
 5. **Verify** — prove the change satisfies the goal with the smallest useful checks.
-6. **Report** — summarize the evidence and only mention optional steps that actually happened.
+6. **Deliver** — commit, push, and create or update a ready MR/PR by default.
+7. **Report** — summarize the evidence and delivery result.
 
 Use these conditionally:
 
 - **Assign** — choose an explorer, planner, or implementer only when task shape warrants it.
-- **Commit** — stage only task paths and use English Conventional Commit when committing is requested or required.
-- **Deliver** — create review or land locally when appropriate.
 - **Clean up** — remove only landed or explicitly abandoned resources.
 
 ## Best Practices
@@ -57,7 +56,9 @@ Use these conditionally:
 - Sync required env files only before checks that need them, without printing or staging secrets.
 - Verify with fresh evidence from the task workspace before claiming success.
 - Stage only task-owned files and inspect the staged diff before commit.
-- Keep commits English Conventional Commit; make version decisions only for shipped behavior changes.
+- Keep commits English Conventional Commit; use patch for compatible fixes, minor for backward-compatible capabilities or workflow defaults, and major only for genuinely incompatible public changes.
+- After verified file-changing work, commit, push, and create or update a ready MR/PR by default; skip only when explicitly declined, no task diff exists, or remote delivery is unavailable.
+- Creating an MR/PR never authorizes merge or force push.
 - Follow repository MR/PR title conventions; when none exist, use a concise English Conventional Commit-style title that describes the overall verified outcome.
 - Make MR/PR descriptions self-contained with background and purpose, change scope and non-goals, implementation approach and tradeoffs, relevant impact and risks, verification evidence, deployment and rollback details, dependencies or draft status, and reviewer focus when applicable; follow repository templates and exclude sensitive information.
 - Screenshots are not part of the MR/PR standard; do not add a screenshot section.
@@ -124,6 +125,11 @@ test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ├── skills/flow -> ../flow
 └── README.md
 ```
+
+## Changes In 5.1.0
+
+- Made ready-for-review MR/PR creation the default after successful verified file-changing tasks.
+- Kept merge and force push behind explicit approval and documented delivery skip conditions.
 
 ## Breaking Changes In 5.0.0
 

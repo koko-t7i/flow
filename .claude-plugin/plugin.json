@@ -1,7 +1,7 @@
 {
   "name": "flow",
-  "version": "5.0.0",
-  "description": "Safe repository changes with adaptive workspace isolation.",
+  "version": "5.1.0",
+  "description": "Safe repository changes with adaptive workspaces and default review delivery.",
   "author": {
     "name": "koko-t7i",
     "url": "https://github.com/koko-t7i"

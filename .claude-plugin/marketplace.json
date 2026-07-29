@@ -1,9 +1,9 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "flow",
-  "description": "Adaptive repository flow for Claude Code.",
+  "description": "Repository flow with adaptive workspaces and review delivery.",
   "metadata": {
-    "description": "One entry for safe repository changes and delivery."
+    "description": "One entry for safe repository changes and default MR/PR delivery."
   },
   "owner": {
     "name": "koko-t7i",
@@ -12,7 +12,7 @@
   "plugins": [
     {
       "name": "flow",
-      "description": "Guide repository changes with optional worktree isolation.",
+      "description": "Guide repository changes through verification and review delivery.",
       "source": "./",
       "category": "productivity"
     }
