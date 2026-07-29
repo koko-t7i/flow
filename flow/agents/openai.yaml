@@ -1,4 +1,4 @@
 interface:
   display_name: "Flow"
-  short_description: "Adaptive workspace flow for repository changes"
-  default_prompt: "Use $flow to choose a safe checkout or optional in-repo worktree, implement and verify changes, then clean merged task resources."
+  short_description: "Repository flow with default MR/PR delivery"
+  default_prompt: "Use $flow to choose a safe workspace, implement and verify repository changes, create a ready MR/PR by default, and clean resources after an authorized merge."
