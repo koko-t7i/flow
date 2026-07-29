@@ -1,33 +1,33 @@
-# Localflow
+# Flow
 
-Localflow is a repository flow skill for coding agents. It keeps local work small and safe:
+Flow is a repository skill for coding agents. It keeps local work small and safe:
 understand the goal, inspect only what matters, isolate every file-changing task in a linked
 worktree, implement, verify, and report. It adds agents, commits, delivery, and cleanup only
 when the task actually needs them.
 
-Version 3 keeps one semantic entrypoint and makes task worktrees mandatory for repository changes.
+Version 4 uses the shorter `flow` name while keeping one entrypoint and mandatory task worktrees.
 
 ## Entry
 
 Claude Code and pi:
 
 ```text
-/localflow <goal or task>
+/flow <goal or task>
 ```
 
 Codex:
 
 ```text
-$localflow <goal or task>
+$flow <goal or task>
 ```
 
 Examples:
 
 ```text
-/localflow fix login redirect and open a PR
-/localflow commit this README cleanup
-/localflow land this clean branch locally
-/localflow clean the merged task branch
+/flow fix login redirect and open a PR
+/flow commit this README cleanup
+/flow land this clean branch locally
+/flow clean the merged task branch
 ```
 
 ## Flow
@@ -71,7 +71,7 @@ Use these conditionally:
 
 ```bash
 claude plugin marketplace add ./
-claude plugin install localflow@localflow
+claude plugin install flow@flow
 ```
 
 Validate:
@@ -83,26 +83,26 @@ claude plugin validate .
 ### Codex
 
 ```bash
-ln -s "$PWD/localflow" "$HOME/.codex/skills/localflow"
+ln -s "$PWD/flow" "$HOME/.codex/skills/flow"
 ```
 
 When the Codex validator is available:
 
 ```bash
-uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
+uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./flow
 ```
 
 ### Pi
 
 ```bash
-ln -s "$PWD/localflow" "$HOME/.pi/skills/localflow"
+ln -s "$PWD/flow" "$HOME/.pi/skills/flow"
 ```
 
 ## Development
 
 ```bash
 claude plugin validate .
-uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./localflow
+uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./flow
 git diff --check
 test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ```
@@ -112,13 +112,17 @@ test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ```text
 .
 ├── .claude-plugin/
-├── commands/localflow.md
-├── localflow/
+├── commands/flow.md
+├── flow/
 │   ├── SKILL.md
 │   └── agents/
-├── skills/localflow -> ../localflow
+├── skills/flow -> ../flow
 └── README.md
 ```
+
+## Breaking Changes In 4.0.0
+
+- Renamed the plugin, skill, command, and public entrypoint from `localflow` to `flow`.
 
 ## Breaking Changes In 3.0.0
 
