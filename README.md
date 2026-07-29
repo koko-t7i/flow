@@ -5,7 +5,7 @@ understand the goal, inspect only what matters, choose the right workspace, impl
 verify, deliver through review by default, and report. It adds worktrees and agents only
 when the task actually needs them.
 
-Version 6 creates an MR/PR after verified file-changing tasks by default while keeping merge approval explicit.
+Version 5.1 creates an MR/PR after verified file-changing tasks by default while keeping merge approval explicit.
 
 ## Entry
 
@@ -56,7 +56,7 @@ Use these conditionally:
 - Sync required env files only before checks that need them, without printing or staging secrets.
 - Verify with fresh evidence from the task workspace before claiming success.
 - Stage only task-owned files and inspect the staged diff before commit.
-- Keep commits English Conventional Commit; make version decisions only for shipped behavior changes.
+- Keep commits English Conventional Commit; use patch for compatible fixes, minor for backward-compatible capabilities or workflow defaults, and major only for genuinely incompatible public changes.
 - After verified file-changing work, commit, push, and create or update a ready MR/PR by default; skip only when explicitly declined, no task diff exists, or remote delivery is unavailable.
 - Creating an MR/PR never authorizes merge or force push.
 - Follow repository MR/PR title conventions; when none exist, use a concise English Conventional Commit-style title that describes the overall verified outcome.
@@ -126,7 +126,7 @@ test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 └── README.md
 ```
 
-## Breaking Changes In 6.0.0
+## Changes In 5.1.0
 
 - Made ready-for-review MR/PR creation the default after successful verified file-changing tasks.
 - Kept merge and force push behind explicit approval and documented delivery skip conditions.
