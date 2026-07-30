@@ -82,12 +82,20 @@ claude plugin validate .
 
 ### Codex
 
+在仓库根目录运行以下命令：
+
 ```bash
 mkdir -p "$HOME/.agents/skills"
-ln -s "$PWD/flow" "$HOME/.agents/skills/flow"
+if [ -L "$HOME/.agents/skills/flow" ]; then
+  unlink "$HOME/.agents/skills/flow"
+fi
+mkdir -p "$HOME/.agents/skills/flow"
+cp -R "$PWD/flow/." "$HOME/.agents/skills/flow/"
 ```
 
 安装后启动新的 Codex 会话，然后使用 `$flow` 直接调用独立技能。
+
+这里复制技能而不创建符号链接，因为本仓库同时也是 Claude Code 插件。符号链接解析后仍位于该插件内，Codex 会将技能显示为带插件限定名的 `$flow:flow`。拉取新版 Flow 后，重新执行上述复制命令即可更新独立技能。
 
 Codex 验证器可用时：
 

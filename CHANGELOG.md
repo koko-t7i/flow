@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.2.3
+
+- Fixed standalone Codex installation so the skill is invoked as `$flow` instead of the plugin-qualified `$flow:flow`.
+
 ## 5.2.2
 
 - Added a Simplified Chinese README and language links between both README files.
