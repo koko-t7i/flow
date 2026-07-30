@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.2.2
+
+- Added a Simplified Chinese README and language links between both README files.
+
 ## 5.2.1
 
 - Moved release history out of the README and into this changelog.
