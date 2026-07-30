@@ -85,12 +85,20 @@ claude plugin validate .
 
 ### Codex
 
+Run these commands from the repository root:
+
 ```bash
 mkdir -p "$HOME/.agents/skills"
-ln -s "$PWD/flow" "$HOME/.agents/skills/flow"
+if [ -L "$HOME/.agents/skills/flow" ]; then
+  unlink "$HOME/.agents/skills/flow"
+fi
+mkdir -p "$HOME/.agents/skills/flow"
+cp -R "$PWD/flow/." "$HOME/.agents/skills/flow/"
 ```
 
 Start a new Codex session after installation, then invoke the standalone skill directly with `$flow`.
+
+The skill is copied instead of symlinked because this repository is also a Claude Code plugin. A symlink resolves back inside that plugin and Codex exposes the skill with the plugin-qualified name `$flow:flow`. Repeat the copy commands after pulling a new Flow version to update the standalone skill.
 
 When the Codex validator is available:
 
