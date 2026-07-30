@@ -5,8 +5,6 @@ understand the goal, inspect only what matters, choose the right workspace, impl
 verify, deliver through review by default, and report. It adds worktrees and agents only
 when the task actually needs them.
 
-Version 5.2 keeps MR/PR verification evidence compact and readable without fenced shell blocks.
-
 ## Entry
 
 Claude Code and pi:
@@ -119,6 +117,7 @@ test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 .
 ├── .claude-plugin/
 ├── .worktrees/ (ignored, when used)
+├── CHANGELOG.md
 ├── commands/flow.md
 ├── flow/
 │   ├── SKILL.md
@@ -126,35 +125,3 @@ test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ├── skills/flow -> ../flow
 └── README.md
 ```
-
-## Changes In 5.2.0
-
-- Required compact, result-first verification evidence with inline commands instead of fenced shell blocks in MR/PR descriptions.
-
-## Changes In 5.1.0
-
-- Made ready-for-review MR/PR creation the default after successful verified file-changing tasks.
-- Kept merge and force push behind explicit approval and documented delivery skip conditions.
-
-## Breaking Changes In 5.0.0
-
-- Made worktree isolation task-dependent instead of mandatory for every file change.
-- Moved new worktrees to `.worktrees/<repo>-<branch>` inside the repository.
-- Cleaned remote and local source branches, merged worktrees, and stale worktree metadata after a successful authorized merge.
-- Moved standalone Codex installation to `$HOME/.agents/skills/flow` for direct `$flow` invocation.
-
-## Breaking Changes In 4.0.0
-
-- Renamed the plugin, skill, command, and public entrypoint from `localflow` to `flow`.
-
-## Breaking Changes In 3.0.0
-
-- Removed in-place implementation and non-worktree fallback for all file-changing tasks.
-- Require a dedicated task branch and linked worktree before editing, generating, staging, or committing task changes.
-- Keep read-only repository inspection available without creating a worktree.
-
-## Breaking Changes In 2.0.0
-
-- Removed legacy public subcommands: `check`, `tree`, `fast`, `commit`, `mr`, and `clean`.
-- Removed old helper scripts, split reference docs, repo-local config schema, and script tests.
-- Replaced scripted routing with one flow skill.
