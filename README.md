@@ -1,5 +1,7 @@
 # Flow
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Flow is a repository skill for coding agents. It keeps local work small and safe:
 understand the goal, inspect only what matters, choose the right workspace, implement,
 verify, deliver through review by default, and report. It adds worktrees and agents only
@@ -122,6 +124,7 @@ test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ├── flow/
 │   ├── SKILL.md
 │   └── agents/
+├── README.zh-CN.md
 ├── skills/flow -> ../flow
 └── README.md
 ```
