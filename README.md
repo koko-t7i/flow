@@ -61,6 +61,7 @@ Use these conditionally:
 - Creating an MR/PR never authorizes merge or force push.
 - Follow repository MR/PR title conventions; when none exist, use a concise English Conventional Commit-style title that describes the overall verified outcome.
 - Make MR/PR descriptions self-contained with background and purpose, change scope and non-goals, implementation approach and tradeoffs, relevant impact and risks, verification evidence, deployment and rollback details, dependencies or draft status, and reviewer focus when applicable; follow repository templates and exclude sensitive information.
+- Write MR/PR descriptions in one language, following the repository's existing language and defaulting to English; no mixed languages or translated duplicates.
 - Present verification as concise result-first bullets with commands in inline code; never use fenced shell blocks for test methods or results.
 - Screenshots are not part of the MR/PR standard; do not add a screenshot section.
 - Prefer direct review creation over pre-listing reviews; avoid broad CI polling.
