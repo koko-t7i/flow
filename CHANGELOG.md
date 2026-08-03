@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.3.0
+
+- Required MR/PR descriptions to use a single language instead of mixing languages or duplicating content as a translation.
+
 ## 5.2.3
 
 - Fixed standalone Codex installation so the skill is invoked as `$flow` instead of the plugin-qualified `$flow:flow`.

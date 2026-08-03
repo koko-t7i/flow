@@ -26,6 +26,7 @@ Baseline:
 - Verify with fresh evidence before claiming success.
 - Follow repository MR/PR title conventions; otherwise use a concise English Conventional Commit-style title for the overall verified outcome.
 - MR/PR descriptions must be self-contained with background and purpose, change scope and non-goals, implementation approach and tradeoffs, relevant impact and risks, verification evidence, deployment and rollback details, dependencies or draft status, and reviewer focus when applicable, while following repository templates and protecting sensitive information.
+- Write MR/PR descriptions in one language, following the repository's existing language and defaulting to English; no mixed languages or translated duplicates.
 - Present verification as concise bullets or prose with results first and commands in inline code; never use fenced shell blocks for test methods or results.
 - Screenshots are not part of the MR/PR standard; do not add a screenshot section.
 - After a verified file-changing task, commit task-owned changes, push the task branch, and create or update a ready MR/PR by default; skip only when the user declines, no task diff exists, or remote delivery is unavailable.
