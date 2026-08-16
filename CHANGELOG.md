@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.4.0
+
+- Removed the Claude Code plugin packaging. Flow now installs as a plain skill by symlink on Claude Code, Codex, and pi, so pulling a new version updates every installation. This breaks the old install path: run `claude plugin uninstall flow@flow` and `claude plugin marketplace remove flow`, then symlink the skill as documented in the README.
+- Removed the `/flow` command file. The skill provides the entrypoint directly and is no longer exposed under the plugin-qualified name `flow:flow`.
+- Removed release-version decisions from the skill. Flow no longer chooses patch, minor, or major versions.
+
 ## 5.3.0
 
 - Required MR/PR descriptions to use a single language instead of mixing languages or duplicating content as a translation.

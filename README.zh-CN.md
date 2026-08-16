@@ -53,7 +53,7 @@ $flow <目标或任务>
 - 仅在检查需要时同步必要的环境文件，且不得打印或暂存机密信息。
 - 在声称成功前，使用任务工作区中的最新证据进行验证。
 - 只暂存任务所属文件，并在提交前检查已暂存的 diff。
-- 提交信息使用英文 Conventional Commit；兼容性修复使用 patch 版本，向后兼容的能力或工作流默认值变更使用 minor 版本，只有真正不兼容的公开变更才使用 major 版本。
+- 提交信息使用英文 Conventional Commit。
 - 完成并验证文件变更后，默认提交、推送，并创建或更新 ready-for-review 的 MR/PR；仅在用户明确拒绝、没有任务 diff 或无法远程交付时跳过。
 - 创建 MR/PR 并不代表获得合并或强制推送的授权。
 - 遵循仓库的 MR/PR 标题规范；若没有规范，则使用简洁的英文 Conventional Commit 风格标题概括整体已验证结果。
@@ -68,35 +68,19 @@ $flow <目标或任务>
 
 ## 安装
 
+Flow 以普通技能的形式安装。在仓库根目录运行以下命令，然后启动新的 agent 会话使技能生效。
+
 ### Claude Code
 
 ```bash
-claude plugin marketplace add ./
-claude plugin install flow@flow
-```
-
-验证：
-
-```bash
-claude plugin validate .
+ln -s "$PWD/flow" "$HOME/.claude/skills/flow"
 ```
 
 ### Codex
 
-在仓库根目录运行以下命令：
-
 ```bash
-mkdir -p "$HOME/.agents/skills"
-if [ -L "$HOME/.agents/skills/flow" ]; then
-  unlink "$HOME/.agents/skills/flow"
-fi
-mkdir -p "$HOME/.agents/skills/flow"
-cp -R "$PWD/flow/." "$HOME/.agents/skills/flow/"
+ln -s "$PWD/flow" "$HOME/.agents/skills/flow"
 ```
-
-安装后启动新的 Codex 会话，然后使用 `$flow` 直接调用独立技能。
-
-这里复制技能而不创建符号链接，因为本仓库同时也是 Claude Code 插件。符号链接解析后仍位于该插件内，Codex 会将技能显示为带插件限定名的 `$flow:flow`。拉取新版 Flow 后，重新执行上述复制命令即可更新独立技能。
 
 Codex 验证器可用时：
 
@@ -110,27 +94,24 @@ uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/q
 ln -s "$PWD/flow" "$HOME/.pi/skills/flow"
 ```
 
+由于各目标均为符号链接，拉取新版 Flow 后所有安装位置自动更新，无需重新安装。
+
 ## 开发
 
 ```bash
-claude plugin validate .
 uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./flow
 git diff --check
-test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ```
 
 ## 目录结构
 
 ```text
 .
-├── .claude-plugin/
 ├── .worktrees/（忽略，仅在使用时存在）
 ├── CHANGELOG.md
-├── commands/flow.md
 ├── flow/
 │   ├── SKILL.md
 │   └── agents/
 ├── README.zh-CN.md
-├── skills/flow -> ../flow
 └── README.md
 ```

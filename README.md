@@ -56,7 +56,7 @@ Use these conditionally:
 - Sync required env files only before checks that need them, without printing or staging secrets.
 - Verify with fresh evidence from the task workspace before claiming success.
 - Stage only task-owned files and inspect the staged diff before commit.
-- Keep commits English Conventional Commit; use patch for compatible fixes, minor for backward-compatible capabilities or workflow defaults, and major only for genuinely incompatible public changes.
+- Keep commits English Conventional Commit.
 - After verified file-changing work, commit, push, and create or update a ready MR/PR by default; skip only when explicitly declined, no task diff exists, or remote delivery is unavailable.
 - Creating an MR/PR never authorizes merge or force push.
 - Follow repository MR/PR title conventions; when none exist, use a concise English Conventional Commit-style title that describes the overall verified outcome.
@@ -71,35 +71,20 @@ Use these conditionally:
 
 ## Install
 
+Flow installs as a plain skill. Run these commands from the repository root, then
+start a new agent session so the skill is picked up.
+
 ### Claude Code
 
 ```bash
-claude plugin marketplace add ./
-claude plugin install flow@flow
-```
-
-Validate:
-
-```bash
-claude plugin validate .
+ln -s "$PWD/flow" "$HOME/.claude/skills/flow"
 ```
 
 ### Codex
 
-Run these commands from the repository root:
-
 ```bash
-mkdir -p "$HOME/.agents/skills"
-if [ -L "$HOME/.agents/skills/flow" ]; then
-  unlink "$HOME/.agents/skills/flow"
-fi
-mkdir -p "$HOME/.agents/skills/flow"
-cp -R "$PWD/flow/." "$HOME/.agents/skills/flow/"
+ln -s "$PWD/flow" "$HOME/.agents/skills/flow"
 ```
-
-Start a new Codex session after installation, then invoke the standalone skill directly with `$flow`.
-
-The skill is copied instead of symlinked because this repository is also a Claude Code plugin. A symlink resolves back inside that plugin and Codex exposes the skill with the plugin-qualified name `$flow:flow`. Repeat the copy commands after pulling a new Flow version to update the standalone skill.
 
 When the Codex validator is available:
 
@@ -113,27 +98,25 @@ uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/q
 ln -s "$PWD/flow" "$HOME/.pi/skills/flow"
 ```
 
+Because each target is a symlink, pulling a new Flow version updates every
+installation; no reinstall step is needed.
+
 ## Development
 
 ```bash
-claude plugin validate .
 uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./flow
 git diff --check
-test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ```
 
 ## Layout
 
 ```text
 .
-├── .claude-plugin/
 ├── .worktrees/ (ignored, when used)
 ├── CHANGELOG.md
-├── commands/flow.md
 ├── flow/
 │   ├── SKILL.md
 │   └── agents/
 ├── README.zh-CN.md
-├── skills/flow -> ../flow
 └── README.md
 ```
