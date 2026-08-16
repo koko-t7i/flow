@@ -68,35 +68,19 @@ $flow <目标或任务>
 
 ## 安装
 
+Flow 以普通技能的形式安装。在仓库根目录运行以下命令，然后启动新的 agent 会话使技能生效。
+
 ### Claude Code
 
 ```bash
-claude plugin marketplace add ./
-claude plugin install flow@flow
-```
-
-验证：
-
-```bash
-claude plugin validate .
+ln -s "$PWD/flow" "$HOME/.claude/skills/flow"
 ```
 
 ### Codex
 
-在仓库根目录运行以下命令：
-
 ```bash
-mkdir -p "$HOME/.agents/skills"
-if [ -L "$HOME/.agents/skills/flow" ]; then
-  unlink "$HOME/.agents/skills/flow"
-fi
-mkdir -p "$HOME/.agents/skills/flow"
-cp -R "$PWD/flow/." "$HOME/.agents/skills/flow/"
+ln -s "$PWD/flow" "$HOME/.agents/skills/flow"
 ```
-
-安装后启动新的 Codex 会话，然后使用 `$flow` 直接调用独立技能。
-
-这里复制技能而不创建符号链接，因为本仓库同时也是 Claude Code 插件。符号链接解析后仍位于该插件内，Codex 会将技能显示为带插件限定名的 `$flow:flow`。拉取新版 Flow 后，重新执行上述复制命令即可更新独立技能。
 
 Codex 验证器可用时：
 
@@ -110,27 +94,24 @@ uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/q
 ln -s "$PWD/flow" "$HOME/.pi/skills/flow"
 ```
 
+由于各目标均为符号链接，拉取新版 Flow 后所有安装位置自动更新，无需重新安装。
+
 ## 开发
 
 ```bash
-claude plugin validate .
 uv run --with pyyaml python "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" ./flow
 git diff --check
-test "$(find commands -type f | wc -l | tr -d ' ')" = "1"
 ```
 
 ## 目录结构
 
 ```text
 .
-├── .claude-plugin/
 ├── .worktrees/（忽略，仅在使用时存在）
 ├── CHANGELOG.md
-├── commands/flow.md
 ├── flow/
 │   ├── SKILL.md
 │   └── agents/
 ├── README.zh-CN.md
-├── skills/flow -> ../flow
 └── README.md
 ```
