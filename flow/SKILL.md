@@ -88,9 +88,6 @@ Apply these details when the corresponding core step or task condition occurs.
 - Inspect staged diff.
 - Use an English Conventional Commit subject.
 - Keep commit content and message aligned with the staged diff.
-- Make a version decision only when shipped behavior, public commands, APIs, install/update behavior, package contents, or released capability changes.
-- Use patch releases for compatible fixes, documentation, and internal-only changes; use minor releases for everything else.
-- Never choose a major release on your own. A change that removes or renames a public entrypoint, or breaks an install or manifest format, still ships as a minor release unless the user explicitly asks for a major version. Record the breaking detail in the changelog entry instead.
 - Exclude secrets, env files, generated junk, unrelated edits, and AI/tool attribution.
 - After a review branch is pushed, append follow-up commits unless the user explicitly approves rewriting history.
 

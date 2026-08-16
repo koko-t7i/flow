@@ -56,7 +56,7 @@ Use these conditionally:
 - Sync required env files only before checks that need them, without printing or staging secrets.
 - Verify with fresh evidence from the task workspace before claiming success.
 - Stage only task-owned files and inspect the staged diff before commit.
-- Keep commits English Conventional Commit; use patch for compatible fixes and minor for everything else. Never pick a major version on your own — breaking changes still ship as minor unless the user explicitly asks for a major release.
+- Keep commits English Conventional Commit.
 - After verified file-changing work, commit, push, and create or update a ready MR/PR by default; skip only when explicitly declined, no task diff exists, or remote delivery is unavailable.
 - Creating an MR/PR never authorizes merge or force push.
 - Follow repository MR/PR title conventions; when none exist, use a concise English Conventional Commit-style title that describes the overall verified outcome.
