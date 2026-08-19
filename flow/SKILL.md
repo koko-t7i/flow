@@ -28,6 +28,8 @@ One public entrypoint: `/flow` or `$flow`. Treat user text as the repo goal.
 3. **Prepare Workspace**
    - Decide whether to reuse the current checkout or create a linked worktree from the task shape, risk, existing changes, parallel work, and delivery needs. File changes alone do not require a worktree.
    - Reuse the current checkout when its branch and dirty-file ownership are safe for the task. Create or switch branches only when the task or delivery needs one.
+   - Before implementation starts or resumes in a multi-agent workflow, fetch the latest remote state and synchronize the development or environment branch that the task is based on. Then integrate that updated branch into each task branch according to repository convention before editing; do not continue development from a stale worktree.
+   - Recheck branch ancestry and worktree status immediately before synchronization. Never discard dirty or unpublished agent changes to catch up; resolve ownership or conflicts explicitly instead.
    - When using a worktree, follow repository branch conventions; otherwise name the branch `type/short-kebab-slug`.
    - Place new worktrees at `<repo-root>/.worktrees/<repo>-<branch>`, replacing `/` in the branch name with `-`, and ensure `.worktrees/` is ignored.
    - Inspect an existing target before reuse. Reuse it only when its branch and ownership match; stop rather than overwrite a collision or unknown worktree.
@@ -77,6 +79,7 @@ Apply these details when the corresponding core step or task condition occurs.
 - Use a planning agent for architecture, migration, or multi-step risk.
 - Use a specialist or general implementation agent for large isolated coding tasks.
 - Run agents in parallel only for independent read-only exploration or clearly separated work.
+- Before an implementation agent begins or resumes edits, synchronize its task branch with the latest development or environment branch and verify that its worktree is not stale. Pass the synchronized base commit in the assignment context when coordination depends on a shared baseline.
 - Give delegated agents narrow prompts, clear scope, expected outputs, and file boundaries.
 - The current agent owns final decisions, git state, verification, commit, delivery, and cleanup.
 
