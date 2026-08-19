@@ -1,141 +1,141 @@
 ---
 name: flow
-description: "Use for safe repository tasks: understand, orient, choose a workspace, implement, verify, create an MR/PR by default, and clean up after an authorized merge."
+description: "用于安全处理仓库任务：理解需求、熟悉环境、选择工作区、实施、验证、默认创建 MR/PR，并在获准合并后清理。"
 ---
 
 # Flow
 
-Flow is a repository workflow skill, not a command toolkit.
+Flow 是仓库工作流技能，不是命令工具集。
 
-Use it to move a repo task through one safe loop with minimal commands, repo-specific judgment, adaptive workspace isolation, and optional agent assignment when useful.
+它以最少命令、仓库特定判断、自适应工作区隔离及按需 Agent 分工，让仓库任务在一个安全闭环中推进。
 
-One public entrypoint: `/flow` or `$flow`. Treat user text as the repo goal.
+唯一公开入口：`/flow` 或 `$flow`。将用户文本视为仓库目标。
 
-## Core Flow
+## 核心流程
 
-1. **Understand**
-   - Inspect local context before asking.
-   - Identify goal, acceptance criteria, scope, non-goals, constraints, and blockers.
-   - Ask only for gaps that change direction, acceptance, risk, or delivery.
+1. **理解**
+   - 提问前先检查本地上下文。
+   - 明确目标、验收标准、范围、非目标、约束和阻碍。
+   - 仅询问会改变方向、验收、风险或交付的缺失信息。
 
-2. **Orient**
-   - Inspect minimal state: branch, status, worktrees, dirty-file ownership, relevant files, and project conventions.
-   - Identify the current branch and, when delivery matters, the environment branch and target; normally `main`, `test`, or `dev`.
-   - Probe tools, auth, remotes, services, or CI only when the current work needs them.
-   - Treat installed/configured/authenticated/permissioned as separate facts.
-   - Keep `origin` stable unless the user explicitly asks to change it.
+2. **定位**
+   - 检查最小必要状态：分支、状态、worktree、脏文件归属、相关文件及项目约定。
+   - 确定当前分支；涉及交付时，还要确定环境分支和目标分支，通常为 `main`、`test` 或 `dev`。
+   - 仅在当前工作需要时探测工具、认证、远程仓库、服务或 CI。
+   - 将已安装、已配置、已认证、有权限视为不同事实。
+   - 除非用户明确要求，否则保持 `origin` 不变。
 
-3. **Prepare Workspace**
-   - Decide whether to reuse the current checkout or create a linked worktree from the task shape, risk, existing changes, parallel work, and delivery needs. File changes alone do not require a worktree.
-   - Reuse the current checkout when its branch and dirty-file ownership are safe for the task. Create or switch branches only when the task or delivery needs one.
-   - Before implementation starts or resumes in a multi-agent workflow, fetch the latest remote state and synchronize the development or environment branch that the task is based on. Then integrate that updated branch into each task branch according to repository convention before editing; do not continue development from a stale worktree.
-   - Recheck branch ancestry and worktree status immediately before synchronization. Never discard dirty or unpublished agent changes to catch up; resolve ownership or conflicts explicitly instead.
-   - When using a worktree, follow repository branch conventions; otherwise name the branch `type/short-kebab-slug`.
-   - Place new worktrees at `<repo-root>/.worktrees/<repo>-<branch>`, replacing `/` in the branch name with `-`, and ensure `.worktrees/` is ignored.
-   - Inspect an existing target before reuse. Reuse it only when its branch and ownership match; stop rather than overwrite a collision or unknown worktree.
-   - Do not implement or commit in detached HEAD. Resolve unclear or unrelated existing changes before editing.
-   - Sync required local environment files into the task workspace only before tests or app commands that need them.
-   - Preserve env-file relative paths and relevant permissions; confirm they are ignored before use.
-   - If required env files are missing from the current checkout, inspect same-repository worktrees before declaring services unavailable.
-   - If workspace safety or change ownership cannot be resolved, stop instead of guessing.
+3. **准备工作区**
+   - 根据任务形态、风险、现有改动、并行工作及交付需求，决定复用当前检出还是新建链接 worktree。仅修改文件不代表必须使用 worktree。
+   - 当前分支及脏文件归属对任务安全时，复用当前检出。仅在任务或交付需要时创建或切换分支。
+   - 多 Agent 工作流开始或恢复实现前，拉取最新远程状态，并同步任务所基于的开发分支或环境分支。编辑前再按仓库约定将该更新分支整合进各任务分支；不要在落后的 worktree 上继续开发。
+   - 同步前立即复查分支祖先关系和 worktree 状态。绝不为追赶进度而丢弃 Agent 的脏改动或未发布改动；应明确解决归属或冲突。
+   - 使用 worktree 时遵循仓库分支约定；否则将分支命名为 `type/short-kebab-slug`。
+   - 新 worktree 放在 `<repo-root>/.worktrees/<repo>-<branch>`，将分支名中的 `/` 替换为 `-`，并确保 `.worktrees/` 已忽略。
+   - 复用现有目标前先检查。仅当其分支和归属匹配时复用；遇到冲突或未知 worktree 应停止，不得覆盖。
+   - 不要在 detached HEAD 中实现或提交。编辑前解决不明确或无关的现有改动。
+   - 仅在测试或应用命令需要前，将所需本地环境文件同步到任务工作区。
+   - 保持环境文件相对路径及相关权限；使用前确认其已忽略。
+   - 当前检出缺少所需环境文件时，先检查同一仓库的其他 worktree，再判定服务不可用。
+   - 无法确认工作区安全性或改动归属时，停止而非猜测。
 
-4. **Implement**
-   - Edit task-owned files only.
-   - Preserve unrelated user changes.
-   - Follow repository conventions over generic preferences.
-   - Avoid unrelated refactors, formatting churn, generated noise, logs, artifacts, and temporary files.
+4. **实现**
+   - 仅编辑任务所有的文件。
+   - 保留用户的无关改动。
+   - 仓库约定优先于通用偏好。
+   - 避免无关重构、格式扰动、生成噪声、日志、产物和临时文件。
 
-5. **Verify**
-   - Prove the change satisfies the goal and acceptance criteria.
-   - Use fresh evidence from the task workspace before claiming success.
-   - Run the smallest useful checks first.
-   - Expand to broader checks when risk, repo policy, or delivery requires it.
-   - Treat tests passed as check evidence, not automatic proof of acceptance.
-   - Treat subagent reports as advice; inspect the evidence before relying on them.
-   - Review the final diff for task boundary, regressions, validation gaps, generated files, secrets, env files, logs, and artifacts.
-   - Fix failures caused by the task; record unrelated failures without expanding scope unless asked.
-   - Report skipped checks and remaining risk.
+5. **验证**
+   - 证明改动满足目标和验收标准。
+   - 声称成功前，从任务工作区取得最新证据。
+   - 先运行最小且有效的检查。
+   - 风险、仓库策略或交付需要时扩大检查范围。
+   - 测试通过只是检查证据，不自动证明验收通过。
+   - 将子 Agent 报告视为建议；依赖前检查其证据。
+   - 审查最终 diff，检查任务边界、回归、验证缺口、生成文件、密钥、环境文件、日志及产物。
+   - 修复任务导致的失败；记录无关失败，除非用户要求，否则不扩大范围。
+   - 报告跳过的检查和剩余风险。
 
-6. **Deliver**
-   - After a file-changing task is complete and verified, default to committing task-owned changes, pushing the task branch, and creating or updating a ready-for-review MR/PR.
-   - Skip review delivery only when the user explicitly declines it, the task is read-only or has no task-owned diff, or no usable remote, hosting integration, authentication, or permission is available.
-   - Do not present incomplete work or failed task-related checks as ready for review. Stop and report the blocker instead.
-   - Keep merge and force push behind explicit approval.
+6. **交付**
+   - 文件修改任务完成并验证后，默认提交任务改动、推送任务分支，并创建或更新可供评审的 MR/PR。
+   - 仅在用户明确拒绝、任务为只读或没有任务 diff，或缺少可用远程仓库、托管集成、认证或权限时，跳过评审交付。
+   - 不要将未完成的工作或任务相关检查失败的工作标记为可评审；应停止并报告阻碍。
+   - 合并和强制推送须经明确批准。
 
-7. **Report**
-   - End with concise evidence from what actually happened.
-   - Include files changed, checks run, skipped checks, unrelated failures, and remaining risk.
-   - For file-changing tasks, include the environment and task branches when relevant, plus the worktree path when one was used.
-   - Include agent assignment, commit, delivery, and cleanup only when they were part of the task.
+7. **报告**
+   - 以实际发生事项的简洁证据收尾。
+   - 包含改动文件、已运行检查、已跳过检查、无关失败及剩余风险。
+   - 文件修改任务应在相关时包含环境分支、任务分支及所用 worktree 路径。
+   - 仅当任务实际涉及时，才包含 Agent 分工、提交、交付及清理。
 
-## Supporting Steps
+## 支持步骤
 
-Apply these details when the corresponding core step or task condition occurs.
+在对应核心步骤或任务条件出现时应用以下细则。
 
-### Assign Agent
+### 分配 Agent
 
-- Keep simple, local, low-risk work in the current agent.
-- Use an explore/search agent for broad codebase discovery.
-- Use a planning agent for architecture, migration, or multi-step risk.
-- Use a specialist or general implementation agent for large isolated coding tasks.
-- Run agents in parallel only for independent read-only exploration or clearly separated work.
-- Before an implementation agent begins or resumes edits, synchronize its task branch with the latest development or environment branch and verify that its worktree is not stale. Pass the synchronized base commit in the assignment context when coordination depends on a shared baseline.
-- Give delegated agents narrow prompts, clear scope, expected outputs, and file boundaries.
-- The current agent owns final decisions, git state, verification, commit, delivery, and cleanup.
+- 简单、本地、低风险的工作由当前 Agent 完成。
+- 使用探索/搜索 Agent 广泛了解代码库。
+- 架构、迁移或多步骤风险任务使用规划 Agent。
+- 大型独立编码任务使用专家或通用实现 Agent。
+- 仅对相互独立的只读探索或明确分离的工作并行运行 Agent。
+- 实现 Agent 开始或恢复编辑前，先将其任务分支同步到最新开发分支或环境分支，并确认其 worktree 未落后。若协作依赖统一基线，在任务上下文中提供同步后的基准提交。
+- 为受委派 Agent 提供聚焦的提示词、明确的范围、预期输出和文件边界。
+- 当前 Agent 负责最终决策、git 状态、验证、提交、交付和清理。
 
-### Commit
+### 提交
 
-- Commit verified task-owned changes when default review delivery applies, or when the user or repository workflow otherwise requires a commit.
-- Inspect final diff.
-- Stage only task-owned paths.
-- Inspect staged diff.
-- Use an English Conventional Commit subject.
-- Keep commit content and message aligned with the staged diff.
-- Exclude secrets, env files, generated junk, unrelated edits, and AI/tool attribution.
-- After a review branch is pushed, append follow-up commits unless the user explicitly approves rewriting history.
+- 默认采用审查交付时，或用户及仓库工作流另有要求时，提交已验证且归属本任务的变更。
+- 检查最终差异。
+- 仅暂存归属本任务的路径。
+- 检查已暂存差异。
+- 使用英文 Conventional Commit 主题。
+- 提交内容、消息须与已暂存差异一致。
+- 排除密钥、环境文件、生成的垃圾文件、无关编辑及 AI/工具署名。
+- 审查分支推送后，使用追加提交；仅在用户明确同意时重写历史。
 
-### Deliver
+### 交付
 
-- Default to creating or updating an MR/PR after successful implementation and verification unless a documented skip condition applies.
-- If changes are on an environment branch, create a task branch before committing and pushing; never push task commits directly to the environment branch for review delivery.
-- For review, create or update a delivery branch when needed, using task-owned changes and concise verification evidence.
-- Follow the repository's review title convention when one exists; otherwise use a concise English Conventional Commit-style title, `type(scope): summary`, with optional scope, that describes the overall verified outcome.
-- Build the MR/PR description from the verified diff and the user conversation, using the repository template when one exists.
-- Make the description self-contained: explain the background and purpose; summarize the change scope and explicit non-goals; outline the implementation approach and important tradeoffs; assess relevant compatibility, data, API, configuration, permission, performance, security, dependency, deployment, and rollback impact; provide verification steps and evidence, including skipped checks; state known risks, limitations, dependencies, draft status, and reviewer focus when applicable; and preserve user-emphasized requirements or decisions.
-- Write the whole description in one language, following the repository's existing MR/PR language and defaulting to English; never mix languages or add a translated duplicate. Identifiers, code, and quoted output stay verbatim.
-- If no repository template exists, organize the applicable details under `Background`, `Changes`, `Implementation`, `Impact and Risks`, `Verification`, `Deployment and Rollback`, and `Review Focus`. Omit empty or inapplicable sections, do not invent user notes, and never expose secrets or sensitive information.
-- Format verification evidence as concise bullets or prose. Lead with the result, put individual commands in inline code, and pair each command with its outcome.
-- Do not use fenced `bash`, `sh`, `shell`, or `console` blocks for test methods or results in MR/PR descriptions; summarize relevant output instead of pasting a terminal transcript.
-- Screenshots are not part of the MR/PR standard. Do not add a screenshot section.
-- Push only intended branches.
-- Prefer direct review creation over pre-listing reviews; inspect existing review only when creation reports one already exists.
-- Create a ready review by default. Use draft status only when the user requests it or the repository workflow explicitly requires it.
-- Avoid broad CI polling; check by commit SHA when CI evidence is required and not already reported.
-- Recover auth without exposing secrets; use HTTPS fallback only with existing credentials or explicit authorization.
-- Keep the intended environment branch clean and verified for local landing.
-- MR/PR creation does not authorize merge. Merge and force push require explicit approval.
-- After an explicitly authorized merge succeeds, perform the verified post-merge cleanup below without asking again.
+- 实现并验证成功后，默认创建或更新 MR/PR，除非有文档规定的跳过条件。
+- 若变更位于环境分支，提交和推送前先创建任务分支；审查交付不得将任务提交直接推送到环境分支。
+- 需要审查时，使用归属本任务的变更和简洁验证证据创建或更新交付分支。
+- 若仓库有审查标题规范则遵循；否则使用简洁的英文 Conventional Commit 风格标题 `type(scope): summary`（scope 可选），概述已验证的整体结果。
+- 根据已验证差异和用户对话编写 MR/PR 描述；若有仓库模板则使用。
+- 描述须自足：说明背景和目的；概述变更范围及明确的非目标；介绍实现方案与重要权衡；评估相关兼容性、数据、API、配置、权限、性能、安全、依赖、部署和回滚影响；提供验证步骤与证据，包括跳过的检查；说明已知风险、限制、依赖、草稿状态和适用的审查重点；保留用户强调的要求或决定。
+- 描述全文使用一种语言：遵循仓库既有 MR/PR 语言，默认英语；不得混用语言或附重复译文。标识符、代码和引用输出保持原文。
+- 若无仓库模板，将适用内容归入 `Background`、`Changes`、`Implementation`、`Impact and Risks`、`Verification`、`Deployment and Rollback` 和 `Review Focus`。省略空白或不适用的章节，不虚构用户说明，不泄露密钥或敏感信息。
+- 将验证证据写成简洁的列表项或文本。先给结果，再以内联代码列出各命令，并附对应结果。
+- MR/PR 描述中的测试方法或结果不得使用带 `bash`、`sh`、`shell` 或 `console` 标记的围栏代码块；应概述相关输出，而非粘贴终端记录。
+- 截图不属于 MR/PR 标准，不添加截图章节。
+- 仅推送预期分支。
+- 优先直接创建审查，而非先列出现有审查；仅当创建操作报告审查已存在时再检查。
+- 默认创建就绪审查。仅在用户要求或仓库工作流明确要求时使用草稿状态。
+- 避免大范围轮询 CI；需要 CI 证据且尚无报告时，按提交 SHA 查询。
+- 恢复认证时不得泄露密钥；仅在已有凭据或明确授权时改用 HTTPS。
+- 保持预期环境分支干净且已验证，以便本地落地。
+- 创建 MR/PR 不代表获准合并。合并和强制推送须经明确批准。
+- 明确获准的合并成功后，无需再次询问，执行下述已验证的合并后清理。
 
-### Clean Up
+### 清理
 
-- Keep task resources while review is open. After a successful merge, verify the merged state, exact source branch, worktree ownership, and clean status before cleanup.
-- Run cleanup from a surviving checkout, never from the worktree being removed.
-- By default, delete the remote source branch, remove its clean linked worktree with `git worktree remove`, delete the merged local source branch with `git branch -d`, then run `git worktree prune`.
-- Treat an already-deleted remote source branch as a successful no-op and continue the remaining cleanup.
-- Never delete an environment branch, dirty worktree, unknown resource, or unmerged branch. Stop and report instead.
-- Ask before cleanup outside this verified post-merge default or when ownership and merge state are unclear.
+- 审查开放期间保留任务资源。成功合并后，先确认已合并状态、确切源分支、worktree 归属和干净状态，再清理。
+- 从保留的 checkout 执行清理，不得从待移除的 worktree 执行。
+- 默认依次删除远程源分支、用 `git worktree remove` 移除干净的关联 worktree、用 `git branch -d` 删除已合并的本地源分支，最后运行 `git worktree prune`。
+- 远程源分支已删除视为成功的空操作，并继续其余清理。
+- 不得删除环境分支、脏 worktree、未知资源或未合并分支；遇到此类情况应停止并报告。
+- 在此已验证的合并后默认流程之外进行清理，或归属和合并状态不明确时，应先询问。
 
-## Best Practices
+## 最佳实践
 
-- Prefer narrow commands over broad probes.
-- Avoid default environment sweeps, fetch loops, review list scans, and CI polling.
-- Never print, stage, commit, upload, or snapshot secret values from env files.
-- Never read, print, store, upload, or script private keys, tokens, passphrases, or secret env values.
-- Public key upload changes account security state and requires explicit approval.
-- Use review CLIs only when review work needs them.
-- Treat reset, restore, clean, rebase, merge, force push, and repository `rm -rf` as high risk.
-- Before destructive actions outside verified post-merge cleanup, state the current branch, exact command, affected files/resources, and expected data loss or cleanup effect; wait for approval.
+- 优先使用针对性命令，而非宽泛探测。
+- 避免默认扫描环境、循环拉取、遍历审查列表及轮询 CI。
+- 切勿打印、暂存、提交、上传或快照保存环境文件中的密钥值。
+- 切勿读取、打印、存储、上传私钥、令牌、口令或环境中的密钥值，也勿用脚本处理它们。
+- 上传公钥会改变账户安全状态，须明确批准。
+- 仅在审查工作需要时使用审查 CLI。
+- 将 reset、restore、clean、rebase、merge、强制推送及仓库中的 `rm -rf` 视为高风险操作。
+- 在经验证的合并后清理以外执行破坏性操作前，说明当前分支、确切命令、受影响的文件/资源及预期的数据丢失或清理效果；等待批准。
 
-## Stop
+## 停止条件
 
-Stop and ask when safe implementation remains unclear, acceptance criteria conflict, scope or ownership is unclear, no safe workspace can be chosen, required env files are unavailable for required checks, auth recovery would expose secrets, task-related checks fail, delivery target is unclear, destructive action lacks approval, post-merge cleanup is dirty or unverified, or agent boundaries cannot be resolved safely. If default review delivery is unavailable, finish the safe local work and report the exact delivery blocker instead of inventing a remote path.
+以下情况应停止并询问：安全实现仍不明确、验收标准冲突、范围或归属不明、无法选择安全工作区、必要检查所需的环境文件不可用、恢复认证会暴露密钥、任务相关检查失败、交付目标不明、破坏性操作未获批准、合并后清理存在脏状态或未经验证，或无法安全厘清 Agent 边界。若默认审查交付不可用，应完成安全的本地工作并报告确切的交付阻碍，不得虚构远程路径。
